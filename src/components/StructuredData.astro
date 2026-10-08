@@ -6,6 +6,10 @@ interface Props {
 }
 
 const { schema } = Astro.props;
+const serializedSchema = JSON.stringify(schema)
+  .replaceAll('<', '\\u003c')
+  .replaceAll('\u2028', '\\u2028')
+  .replaceAll('\u2029', '\\u2029');
 ---
 
-<script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+<script is:inline type="application/ld+json" set:html={serializedSchema} />

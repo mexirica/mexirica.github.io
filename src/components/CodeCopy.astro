@@ -25,20 +25,29 @@
       button.textContent = IDLE_LABEL;
       button.setAttribute('aria-label', 'Copy code to clipboard');
       button.setAttribute('data-pagefind-ignore', '');
+      const status = document.createElement('span');
+      status.className = 'visually-hidden';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
       button.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(code.innerText.replace(/\n$/, ''));
         } catch {
+          button.textContent = 'Copy failed';
+          status.textContent = 'Code could not be copied to the clipboard.';
           return;
         }
         button.textContent = 'Copied';
         button.classList.add('is-copied');
+        status.textContent = 'Code copied to the clipboard.';
         window.setTimeout(() => {
           button.textContent = IDLE_LABEL;
           button.classList.remove('is-copied');
+          status.textContent = '';
         }, 1600);
       });
       wrapper.appendChild(button);
+      wrapper.appendChild(status);
     }
   };
 

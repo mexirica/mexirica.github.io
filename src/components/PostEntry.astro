@@ -1,0 +1,34 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { withBase } from '../lib/url';
+import { formatDate } from '../i18n';
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+  readingTime: string;
+}
+
+const { post, readingTime } = Astro.props;
+---
+
+<article class="entry-card">
+  <div class="entry-meta">
+    <time datetime={post.data.publishDate.toISOString()}>
+      {formatDate(post.data.publishDate, 'short')}
+    </time>
+    <span>{readingTime}</span>
+  </div>
+  <h2>
+    <a href={withBase(`/blog/${post.id}/`)}>{post.data.title}</a>
+  </h2>
+  <p>{post.data.description}</p>
+  <ul class="tag-list" aria-label={`Tags for ${post.data.title}`}>
+    {
+      post.data.tags.map((tag) => (
+        <li>
+          <a href={withBase(`/blog/tags/${tag}/`)}>{tag}</a>
+        </li>
+      ))
+    }
+  </ul>
+</article>

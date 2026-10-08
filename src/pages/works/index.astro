@@ -2,15 +2,11 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { withBase } from '../../lib/url';
+import { sortWorks } from '../../lib/content';
 import { SITE } from '../../consts';
 import { t } from '../../i18n';
 
-const works = (await getCollection('works')).sort((a, b) => {
-  const orderA = a.data.order ?? Number.MAX_SAFE_INTEGER;
-  const orderB = b.data.order ?? Number.MAX_SAFE_INTEGER;
-  if (orderA !== orderB) return orderA - orderB;
-  return b.data.publishDate.valueOf() - a.data.publishDate.valueOf();
-});
+const works = sortWorks(await getCollection('works'));
 ---
 
 <BaseLayout
@@ -19,10 +15,9 @@ const works = (await getCollection('works')).sort((a, b) => {
 >
   <section class="page-head section">
     <p class="eyebrow">{t('works.eyebrow')}</p>
-    <h1>Selected projects and case studies.</h1>
+    <h1>Open-source systems and developer tools.</h1>
     <p class="lead">
-      The works collection is typed for descriptions, technology lists, external links,
-      repositories, thumbnails, ordering, and publish dates.
+      Open-source projects, tools, and experiments I’m working on
     </p>
   </section>
 
@@ -36,6 +31,13 @@ const works = (await getCollection('works')).sort((a, b) => {
               <a href={withBase(`/works/${work.id}/`)}>{work.data.title}</a>
             </h2>
             <p>{work.data.description}</p>
+            {work.data.repo && (
+              <div class="action-row">
+                <a class="text-link" href={work.data.repo}>
+                  {t('work.repository')}
+                </a>
+              </div>
+            )}
           </article>
         ))
       }

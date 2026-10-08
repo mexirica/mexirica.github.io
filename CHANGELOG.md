@@ -5,9 +5,8 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Because Astro Keel is a **template**, "upgrading" usually means porting the
-changes below into your own copy rather than bumping a dependency. Entries are
-written with that in mind — each one names the files it touches.
+Earlier entries describe the inherited foundation of this site. Current changes
+track the portfolio as deployed at mexirica.github.io.
 
 ## [Unreleased]
 
@@ -138,6 +137,6 @@ Initial release.
   Node 22.
 - `npm run check` (`astro check`) wired up, MIT license, and the theme README.
 
-[Unreleased]: https://github.com/kpab/astro-keel/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/kpab/astro-keel/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/kpab/astro-keel/releases/tag/v0.1.0
+[Unreleased]: https://github.com/mexirica/mexirica.github.io/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mexirica/mexirica.github.io/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/mexirica/mexirica.github.io/releases/tag/v0.1.0

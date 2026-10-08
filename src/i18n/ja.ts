@@ -82,7 +82,6 @@ export const ja: UIStrings = {
   'works.eyebrow': '制作物',
   'works.listLabel': '厳選した制作物',
   'work.eyebrow': '制作物',
-  'work.visit': 'プロジェクトを見る',
   'work.repository': 'リポジトリを見る',
   'work.stackEyebrow': '技術構成',
 

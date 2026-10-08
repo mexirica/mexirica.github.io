@@ -8,7 +8,7 @@ import { SITE } from '../../../consts';
 
 // Build-time generated Open Graph images for every blog post and work entry,
 // rendered in the theme's light palette (see global.css tokens). The static
-// `public/og.jpg` remains the site-wide fallback for all other pages.
+// The same route also renders the site-wide fallback used by regular pages.
 
 interface OgProps {
   title: string;
@@ -20,6 +20,14 @@ export const getStaticPaths = (async () => {
   const blog = await getCollection('blog', ({ data }) => !data.draft);
   const works = await getCollection('works');
   return [
+    {
+      params: { collection: 'site', slug: 'default' },
+      props: {
+        title: 'Software engineer working with Go and systems.',
+        description: SITE.description,
+        kind: 'Rodrigo Mecheri',
+      } satisfies OgProps,
+    },
     ...blog.map((entry) => ({
       params: { collection: 'blog', slug: entry.id },
       props: {
@@ -139,7 +147,7 @@ export const GET: APIRoute<OgProps> = async ({ props }) => {
                           fontFamily: 'Fraunces',
                           fontSize: 24,
                           textTransform: 'uppercase',
-                          letterSpacing: 4,
+                          letterSpacing: 2,
                         },
                         children: [
                           {

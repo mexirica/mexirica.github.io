@@ -96,7 +96,6 @@ export const en = {
   'works.eyebrow': 'Works',
   'works.listLabel': 'Selected works',
   'work.eyebrow': 'Work',
-  'work.visit': 'Visit project',
   'work.repository': 'View repository',
   'work.stackEyebrow': 'Stack',
 
@@ -110,15 +109,15 @@ export const en = {
   'search.eyebrow': 'Search',
   'search.sectionLabel': 'Site search',
   'search.fallback':
-    'The search index is generated at build time. Run <code>npm run build</code> and preview the site to try it — it is not available on the dev server.',
+    'Search requires JavaScript and the site index. Browse the blog or work archive instead.',
 
   // 404 — a theme-owned page, so its copy belongs here
   'notFound.title': 'Page not found',
   'notFound.description': 'The page you were looking for does not exist.',
   'notFound.eyebrow': '404 — Not found',
-  'notFound.heading': 'This page drifted off course.',
+  'notFound.heading': 'There is nothing at this address.',
   'notFound.lead':
-    'The address may have moved, or it never existed. The keel lines below lead back to steady water.',
+    'The page may have moved, or the address may be incomplete. Continue from one of the indexes below.',
   'notFound.linksLabel': 'Recovery links',
   'notFound.home': 'Back home',
   'notFound.blog': 'Read the blog',

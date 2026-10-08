@@ -5,14 +5,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import StructuredData from '../../components/StructuredData.astro';
 import Comments from '../../components/Comments.astro';
 import { withBase } from '../../lib/url';
+import { sortPosts } from '../../lib/content';
 import { SITE } from '../../consts';
 import { formatDate, readingTime, t } from '../../i18n';
 
 export async function getStaticPaths() {
   // Newest-first, same ordering as the blog index.
-  const entries = (await getCollection('blog', ({ data }) => !data.draft)).sort(
-    (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf(),
-  );
+  const entries = sortPosts(await getCollection('blog', ({ data }) => !data.draft));
   return entries.map((entry, index) => {
     // Up to 3 posts ranked by shared tags; ties resolved by newest publish date.
     const related = entries
@@ -86,6 +85,7 @@ const schema = [
   <article data-pagefind-body>
     <header class="page-head section article-head">
       <p class="eyebrow">{t('post.eyebrow')}</p>
+      <a class="text-link return-link" href={withBase('/blog/')}>← All posts</a>
       <h1>{entry.data.title}</h1>
       <p class="lead">{entry.data.description}</p>
       <div class="entry-meta">
@@ -93,7 +93,9 @@ const schema = [
           >{formatDate(entry.data.publishDate)}</time
         >
         <span>{readingTime(remarkPluginFrontmatter.minutesRead)}</span>
-        <span>{entry.data.tags.join(' / ')}</span>
+        <span class="inline-tags">
+          {entry.data.tags.map((tag) => <a href={withBase(`/blog/tags/${tag}/`)}>{tag}</a>)}
+        </span>
       </div>
       {
         entry.data.heroImage && (

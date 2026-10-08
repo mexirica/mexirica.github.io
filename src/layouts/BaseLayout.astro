@@ -44,9 +44,11 @@ const isActive = (href: string) => {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
+    <meta name="author" content={SITE.author} />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fdfcf9" data-theme-color />
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
-    <link rel="icon" href={withBase('/favicon.ico')} />
     <link rel="canonical" href={canonicalURL} />
     <link rel="sitemap" href={withBase('/sitemap-index.xml')} />
     <link rel="alternate" type="application/rss+xml" title={siteName} href={withBase('/rss.xml')} />
@@ -78,7 +80,11 @@ const isActive = (href: string) => {
         const applyTheme = () => {
           const storedTheme = localStorage.getItem('theme');
           const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          document.documentElement.dataset.theme = storedTheme || (prefersDark ? 'dark' : 'light');
+          const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+          document.documentElement.dataset.theme = theme;
+          document
+            .querySelector('[data-theme-color]')
+            ?.setAttribute('content', theme === 'dark' ? '#202124' : '#fdfcf9');
         };
         applyTheme();
         document.addEventListener('astro:after-swap', applyTheme);
@@ -86,6 +92,7 @@ const isActive = (href: string) => {
     </script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <a class="brand" href={withBase('/')} aria-label={t('nav.brandHome', { site: siteName })}>
         <span class="brand-mark" aria-hidden="true"></span>
@@ -100,20 +107,26 @@ const isActive = (href: string) => {
           ))
         }
       </nav>
-      <button class="theme-toggle" type="button" aria-label={t('theme.toggle')} data-theme-toggle>
+      <button
+        class="theme-toggle"
+        type="button"
+        aria-label={t('theme.toggle')}
+        aria-pressed="false"
+        data-theme-toggle
+      >
         <span aria-hidden="true"></span>
       </button>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
       <slot />
     </main>
 
     <footer class="site-footer">
-      <p>{SITE.footerText}</p>
+      {SITE.footerText && <p>{SITE.footerText}</p>}
       <div class="footer-links">
         <a href={withBase('/blog/')}>{t('footer.notes')}</a>
-        <a href="https://almanac.p4ni.com" target="_blank" rel="noopener noreferrer">Almanac ↗</a>
+        <a href={withBase('/works/')}>Works</a>
       </div>
       <SocialLinks />
     </footer>
@@ -124,14 +137,28 @@ const isActive = (href: string) => {
       // Delegated to `document` so the handler survives view-transition swaps
       // that replace the toggle button element.
       document.addEventListener('click', (event) => {
-        if (!(event.target instanceof Element) || !event.target.closest('[data-theme-toggle]')) {
+        if (!(event.target instanceof Element)) {
           return;
         }
+        const toggle = event.target.closest('[data-theme-toggle]');
+        if (!(toggle instanceof HTMLButtonElement)) return;
         const current = document.documentElement.dataset.theme;
         const next = current === 'dark' ? 'light' : 'dark';
         document.documentElement.dataset.theme = next;
         localStorage.setItem('theme', next);
+        toggle.setAttribute('aria-pressed', String(next === 'dark'));
+        document
+          .querySelector('[data-theme-color]')
+          ?.setAttribute('content', next === 'dark' ? '#202124' : '#fdfcf9');
       });
+
+      const syncThemeToggle = () => {
+        document
+          .querySelector('[data-theme-toggle]')
+          ?.setAttribute('aria-pressed', String(document.documentElement.dataset.theme === 'dark'));
+      };
+      syncThemeToggle();
+      document.addEventListener('astro:page-load', syncThemeToggle);
     </script>
   </body>
 </html>

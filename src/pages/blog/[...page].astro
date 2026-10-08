@@ -1,23 +1,19 @@
 ---
 import { getCollection, render } from 'astro:content';
-import type { GetStaticPaths, InferGetStaticPropsType } from 'astro';
+import type { GetStaticPaths } from 'astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Pagination from '../../components/Pagination.astro';
+import PostEntry from '../../components/PostEntry.astro';
 import { withBase } from '../../lib/url';
+import { collectTags, sortPosts } from '../../lib/content';
 import { SITE } from '../../consts';
-import { formatDate, readingTime, t } from '../../i18n';
+import { readingTime, t } from '../../i18n';
 
 export const getStaticPaths = (async ({ paginate }) => {
-  const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
-    (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf(),
-  );
-  const allTags = [...new Set(posts.flatMap((post) => post.data.tags))].sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const posts = sortPosts(await getCollection('blog', ({ data }) => !data.draft));
+  const allTags = collectTags(posts);
   return paginate(posts, { pageSize: 10, props: { allTags } });
 }) satisfies GetStaticPaths;
-
-type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 
 const { page, allTags } = Astro.props;
 const posts = page.data;
@@ -37,14 +33,14 @@ const pageTitle =
 
 <BaseLayout
   title={pageTitle}
-  description={`Notes and writing — ${SITE.title}, a minimal portfolio and blog theme for Astro.`}
+  description={`Technical notes on Go, systems, and developer tooling by ${SITE.title}.`}
 >
   <section class="page-head section">
     <p class="eyebrow">{t('blog.eyebrow')}</p>
-    <h1>Notes, essays, and release logs.</h1>
+    <h1>Notes from building systems.</h1>
     <p class="lead">
-      The blog collection supports tags, descriptions, draft filtering, publish dates, and optional
-      hero images.
+      Implementation notes on Go, storage infrastructure, and the decisions behind the projects on
+      this site.
     </p>
   </section>
 
@@ -60,19 +56,7 @@ const pageTitle =
       <div class="entry-list">
         {
           posts.map((post) => (
-            <article class="entry-card">
-              <div class="entry-meta">
-                <time datetime={post.data.publishDate.toISOString()}>
-                  {formatDate(post.data.publishDate, 'short')}
-                </time>
-                <span>{readingTimes.get(post.id)}</span>
-                <span>{post.data.tags.join(' / ')}</span>
-              </div>
-              <h2>
-                <a href={withBase(`/blog/${post.id}/`)}>{post.data.title}</a>
-              </h2>
-              <p>{post.data.description}</p>
-            </article>
+            <PostEntry post={post} readingTime={readingTimes.get(post.id) ?? ''} />
           ))
         }
       </div>

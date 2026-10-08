@@ -1,0 +1,413 @@
+---
+title: 'Building Strata: A Content-Addressed Storage System in Go'
+publishDate: 2026-10-08
+tags:
+  - go
+  - storage
+  - infrastructure
+  - systems-design
+description: 'How Strata started, the problems I encountered while building it, and the design decisions behind its content-addressed storage model.'
+draft: false
+---
+
+Two years ago, I came across a [YouTube tutorial](https://www.youtube.com/watch?v=bymQakvTY40&t=800s) about building a content-addressed storage system. The concepts stuck with me, and I kept coming back to the idea over time.
+
+A few weeks ago, I finally decided to build my own.
+
+That became **Strata**.
+
+I started with a fairly simple goal: build a small content-addressed storage system and see how the pieces fit together in practice.
+
+It didn't stay simple for very long.
+
+Once I started implementing it, questions around chunking, hashing, manifests, persistence, corruption, and garbage collection started appearing one after another. Each decision affected something else, and the initial design changed as I worked through those problems.
+
+This article covers how Strata evolved from that initial idea into what it is today, and the reasoning behind some of the decisions along the way.
+
+## What is Strata?
+
+Strata is a content-addressed storage system written in Go.
+
+Instead of storing a file under a traditional path such as:
+
+```text
+/photos/holiday.jpg
+```
+
+Strata breaks the file into chunks and addresses those chunks by their content.
+
+Conceptually, the model looks like this:
+
+```text
+File
+ │
+ ▼
+Manifest
+ │
+ ├── Chunk A ──► Hash A
+ ├── Chunk B ──► Hash B
+ └── Chunk C ──► Hash C
+```
+
+The manifest describes how the chunks should be assembled to reconstruct the original file.
+
+The interesting part is that the content itself becomes the identity.
+
+If two files contain the same chunk, they can reference the same stored data instead of keeping two copies.
+
+That gives the system a natural foundation for deduplication and integrity checking.
+
+## Starting with chunks
+
+The first design question was how to split files.
+
+The simplest approach would have been fixed-size chunks. For example, every file could be divided into 1 MiB blocks:
+
+```text
+[ 1 MiB ][ 1 MiB ][ 1 MiB ][ 1 MiB ]
+```
+
+That works, but it has an important limitation.
+
+If bytes are inserted near the beginning of a file, every chunk after the insertion point can change:
+
+```text
+Before:
+
+[ A ][ B ][ C ][ D ]
+
+After inserting data near the beginning:
+
+[ A' ][ B' ][ C' ][ D' ]
+```
+
+Even though most of the original content is still there, the chunk boundaries have shifted.
+
+That makes deduplication much less effective.
+
+I wanted Strata to recognize identical regions of content even when a file changes slightly.
+
+That led me to content-defined chunking.
+
+## Using FastCDC
+
+With content-defined chunking, chunk boundaries are determined by the content rather than simply by position.
+
+Instead of saying "create a chunk every N bytes," the chunker looks for patterns in the data and uses them to determine boundaries.
+
+The result is closer to:
+
+```text
+[      A      ][   B   ][        C        ][ D ]
+```
+
+When content is inserted or modified, only a relatively small region around the change needs to be repartitioned. Unchanged regions can keep their existing boundaries.
+
+For Strata, I chose [FastCDC](https://github.com/nlfiedler/go-fastcdc) as the chunking algorithm.
+
+At this point, the storage model became much more interesting:
+
+```text
+File
+ │
+ ▼
+FastCDC
+ │
+ ├── chunk
+ ├── chunk
+ ├── chunk
+ └── chunk
+      │
+      ▼
+    hash
+```
+
+Now I needed a stable way to identify those chunks.
+
+## Hashes are more than identifiers
+
+The obvious answer was hashing.
+
+Each chunk gets a cryptographic hash, and that hash becomes its address.
+
+For example:
+
+```text
+chunk bytes
+    │
+    ▼
+ BLAKE3
+    │
+    ▼
+chunk ID
+```
+
+Strata currently supports both BLAKE3 and SHA-256.
+
+The important part is that the hash is not only an identifier.
+
+It also gives me a way to verify the data.
+
+When reading a chunk, Strata can calculate its hash again and compare it with the expected address:
+
+```text
+stored chunk
+     │
+     ▼
+   hash
+     │
+     ├── matches ──► return data
+     │
+     └── mismatch ─► corruption
+```
+
+That distinction became important while designing the storage layer.
+
+A storage system is not only about putting bytes somewhere and getting them back. I also need to know whether the bytes I got back are the bytes I originally stored.
+
+Strata therefore treats a hash mismatch as a corrupted chunk rather than silently returning invalid data.
+
+## From chunks to files
+
+Chunks solve the problem of storing content, but they don't describe how a complete file should be reconstructed.
+
+That's where manifests come in.
+
+A manifest stores the metadata needed to describe a logical file, including its name, size, and ordered list of chunk references.
+
+Conceptually:
+
+```text
+Manifest
+├── name
+├── size
+└── chunks
+    ├── hash A
+    ├── hash B
+    └── hash C
+```
+
+To read a file, Strata loads the manifest, resolves each chunk, and streams the chunks back in order.
+
+The separation is useful:
+
+```text
+             ┌──────────────┐
+             │   Manifest   │
+             └──────┬───────┘
+                    │
+          references chunks
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+     Chunk A     Chunk B     Chunk C
+```
+
+The manifest represents the logical file.
+
+The chunks represent the underlying content.
+
+That separation also becomes important for garbage collection.
+
+## Garbage collection
+
+Once chunks are content-addressed, deleting a file becomes slightly different from deleting a normal filesystem object.
+
+Removing a manifest doesn't necessarily mean the referenced chunks can be deleted immediately.
+
+Another file may still reference them.
+
+So Strata treats manifests as the source of truth for reachability.
+
+The basic idea is:
+
+```text
+Manifests
+   │
+   ▼
+Referenced chunks
+   │
+   ▼
+Keep
+
+Unreferenced chunks
+   │
+   ▼
+Garbage collection
+```
+
+The garbage collector walks the manifests, collects the chunk references that are still reachable, and removes chunks that are no longer referenced.
+
+This was one of the places where the original "just store chunks by hash" idea turned into an actual storage-system problem.
+
+Identity tells me what a chunk is.
+
+The manifest tells me whether anything still needs it.
+
+## Choosing the persistence layer
+
+Strata has two different kinds of data to persist.
+
+The chunk bytes themselves are relatively large and are naturally suited to filesystem or blob storage.
+
+Metadata is different.
+
+I need to persist things such as manifests, chunk references, and other small pieces of state.
+
+For that part, I chose [BadgerDB](https://github.com/dgraph-io/badger).
+
+The current architecture therefore separates metadata from chunk data:
+
+```text
+                ┌──────────────┐
+                │   File API   │
+                └──────┬───────┘
+                       │
+              ┌────────▼────────┐
+              │    Manifest     │
+              │     Store       │
+              └────────┬────────┘
+                       │
+                  BadgerDB
+                       │
+                       │
+              chunk references
+                       │
+                       ▼
+                ┌──────────────┐
+                │ Object Store │
+                └──────┬───────┘
+                       │
+                       ▼
+                Local filesystem
+```
+
+Keeping metadata and chunk storage separate also leaves room for a different backend later.
+
+For example, local storage can eventually be combined with cloud blob storage without changing the basic content-addressed model.
+
+## The current architecture
+
+The implementation is still intentionally small.
+
+The main pieces currently look roughly like this:
+
+```text
+                  ┌───────────────┐
+                  │   File API    │
+                  └───────┬───────┘
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │    Chunker    │
+                  │   FastCDC     │
+                  └───────┬───────┘
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │    Hasher     │
+                  │ BLAKE3/SHA256 │
+                  └───────┬───────┘
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │  ObjectStore  │
+                  └───────┬───────┘
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+       Local chunks                BadgerDB
+                                  manifests
+```
+
+The code is split into small packages around these responsibilities rather than putting the whole storage pipeline in a single component.
+
+That has made it easier to change one part without having to redesign everything around it.
+
+## The problems that are starting to matter
+
+The first version was mostly about getting the storage model working.
+
+Now the interesting problems are moving elsewhere.
+
+Corruption handling is one of them.
+
+Detecting a bad chunk is relatively straightforward because the content hash gives me something to compare against. Recovering from that corruption is a different problem.
+
+If a chunk is damaged and there is only one copy of it, the hash can tell me that the data is wrong, but it cannot reconstruct the original bytes.
+
+That means recovery eventually needs redundancy.
+
+The same applies to durability.
+
+A local filesystem is enough for the current version, but it also means that the system is still tied to one machine.
+
+Once chunks can live in multiple locations, new questions appear:
+
+- How should chunks be replicated?
+- How do nodes discover each other?
+- How is replication coordinated?
+- What happens when a node disappears during replication?
+- How do garbage collection and replication interact?
+- How should recovery work after partial failure?
+
+Those are problems I don't want to solve yet.
+
+Not because they aren't interesting, but because the single-node storage model still has more to teach me.
+
+## Why not start with a distributed system?
+
+It would be tempting to start with multiple nodes, replication, object storage, and all the other pieces that make a system look like a "real" distributed storage platform.
+
+I don't think that would make Strata better right now.
+
+The core model is already interesting on one node.
+
+I want to understand the behavior of chunks, manifests, references, integrity checks, persistence, and garbage collection before adding network boundaries and distributed failure modes.
+
+Otherwise, it becomes difficult to tell whether a problem comes from the storage model itself or from the distributed system built around it.
+
+So the current goal is deliberately smaller:
+
+**make the single-node version solid first.**
+
+## What I want Strata to become
+
+The direction I'm considering is roughly:
+
+```text
+Single node
+    │
+    ▼
+Local + cloud blob storage
+    │
+    ▼
+Multiple nodes
+    │
+    ▼
+Replication
+```
+
+Each step introduces a different class of problems.
+
+The next step is not simply "add cloud storage." It means defining a storage abstraction that works well with both local and remote backends.
+
+After that, multiple nodes introduce coordination and failure handling.
+
+Replication comes later, once the underlying storage model is stable enough to support it.
+
+I don't have all of those pieces designed yet, and that's intentional. I'd rather let the implementation expose the next problems than design a distributed system around assumptions that may change.
+
+## A few weeks in
+
+Strata is still small, and there is a lot left to do.
+
+But the project has already changed considerably from the simple idea I had when I started it.
+
+What initially sounded like "store files by their hash" turned into questions about chunk boundaries, deduplication, integrity, manifests, reachability, persistence, and recovery.
+
+That's what made the project interesting for me.
+
+The concepts from that tutorial stuck with me for a long time. Building the system myself finally gave me a reason to work through all the details that are easy to overlook when looking at content-addressed storage from the outside.
+
+The current version is only the beginning.
