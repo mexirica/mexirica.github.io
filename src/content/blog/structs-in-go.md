@@ -176,18 +176,18 @@ That does not mean every struct should be ordered solely by field size. Field or
 Go distinguishes between a type's representation and its identity. Two named struct types remain distinct even when their fields are identical:
 
 ```go
-type Bill struct {
+type Wagner struct {
 	ID int
 }
 
-type Nancy struct {
+type Rodrigo struct {
 	ID int
 }
 
-var bill Bill
-var nancy Nancy
+var rodrigo Rodrigo
+var wagner Wagner
 
-// bill = nancy // compile error: cannot use Nancy as Bill
+// wagner = rodrigo // compile error: cannot use Rodrigo as Wagner
 ```
 
 This distinction is useful. A `CustomerID` and an `InvoiceID`, for example, may share the same representation while describing different concepts that should not be mixed accidentally.
@@ -195,7 +195,7 @@ This distinction is useful. A `CustomerID` and an `InvoiceID`, for example, may 
 When two named struct types have identical underlying types, an explicit conversion states that the change is intentional:
 
 ```go
-bill = Bill(nancy)
+wagner = Wagner(rodrigo)
 ```
 
 Anonymous struct types follow structural identity rules. Their fields must have the same names, types, order, tags, and embedded status to be identical:

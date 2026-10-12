@@ -12,9 +12,9 @@ export const SITE = {
   /** Site name — used in the header brand, <title>, and og:site_name. */
   title: 'Rodrigo Mecheri',
   /** Default meta description for pages that don't set their own. */
-  description: 'Software engineer working with Go, developer tooling, and systems.',
+  description: 'Software engineer focused on Go, developer tooling, and systems.',
   /** Description of the RSS feed at /rss.xml. */
-  rssDescription: 'Technical writing on Go, infrastructure, and maintainable systems.',
+  rssDescription: 'Technical writing about Go, infrastructure, and maintainable systems.',
   /** Default social share image, relative to the site root (see public/). */
   ogImage: '/og/site/default.png',
   /** Post author, emitted in JSON-LD BlogPosting structured data.
