@@ -1,6 +1,6 @@
 ---
 title: 'Structs in Go: Understanding Memory, Alignment, and Type Identity'
-publishDate: 2025-07-20
+publishDate: 2026-10-12
 tags:
   - go
   - programming
