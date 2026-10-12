@@ -23,7 +23,7 @@ export const getStaticPaths = (async () => {
     {
       params: { collection: 'site', slug: 'default' },
       props: {
-        title: 'Software engineer working with Go and systems.',
+        title: 'Software Engineer Focused on Go and Systems',
         description: SITE.description,
         kind: 'Rodrigo Mecheri',
       } satisfies OgProps,
