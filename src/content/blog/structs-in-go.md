@@ -187,7 +187,7 @@ type Rodrigo struct {
 var rodrigo Rodrigo
 var wagner Wagner
 
-// wagner = rodrigo // compile error: cannot use Rodrigo as Wagner
+// rodrigo = wagner // compile error: cannot use Wagner as Rodrigo
 ```
 
 This distinction is useful. A `CustomerID` and an `InvoiceID`, for example, may share the same representation while describing different concepts that should not be mixed accidentally.
@@ -195,7 +195,7 @@ This distinction is useful. A `CustomerID` and an `InvoiceID`, for example, may 
 When two named struct types have identical underlying types, an explicit conversion states that the change is intentional:
 
 ```go
-wagner = Wagner(rodrigo)
+rodrigo = Rodrigo(wagner)
 ```
 
 Anonymous struct types follow structural identity rules. Their fields must have the same names, types, order, tags, and embedded status to be identical:
