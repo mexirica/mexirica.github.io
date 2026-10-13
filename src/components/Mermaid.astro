@@ -1,0 +1,125 @@
+---
+interface Props {
+  chart: string;
+  label: string;
+  size?: 'compact' | 'standard' | 'wide';
+}
+
+const { chart, label, size = 'standard' } = Astro.props;
+---
+
+<figure
+  class:list={['mermaid-diagram', `mermaid-diagram--${size}`]}
+  data-mermaid-source={chart}
+  data-mermaid-label={label}
+>
+  <div class="mermaid">{chart}</div>
+  <figcaption class="visually-hidden">{label}</figcaption>
+</figure>
+
+<script>
+  import mermaid from 'mermaid';
+
+  const renderDiagrams = async () => {
+    const theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'neutral';
+    const figures = document.querySelectorAll<HTMLElement>('.mermaid-diagram');
+
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme,
+      flowchart: {
+        curve: 'linear',
+        htmlLabels: true,
+        nodeSpacing: 26,
+        rankSpacing: 34,
+        useMaxWidth: true,
+      },
+      themeVariables: {
+        fontFamily: 'Public Sans, sans-serif',
+        fontSize: '15px',
+      },
+    });
+
+    for (const figure of figures) {
+      if (figure.dataset.renderedTheme === theme) continue;
+
+      const container = figure.querySelector<HTMLElement>('.mermaid');
+      if (!container) continue;
+
+      container.removeAttribute('data-processed');
+      container.textContent = figure.dataset.mermaidSource ?? '';
+      await mermaid.run({ nodes: [container] });
+
+      const svg = container.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label', figure.dataset.mermaidLabel ?? 'Diagram');
+      }
+
+      figure.dataset.renderedTheme = theme;
+    }
+  };
+
+  let renderQueue = Promise.resolve();
+  const scheduleRender = () => {
+    renderQueue = renderQueue.then(renderDiagrams);
+  };
+
+  scheduleRender();
+  document.addEventListener('astro:page-load', scheduleRender);
+
+  new MutationObserver((mutations) => {
+    if (mutations.some((mutation) => mutation.attributeName === 'data-theme')) {
+      scheduleRender();
+    }
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>
+
+<style>
+  .mermaid-diagram {
+    width: 100%;
+    margin-block: calc(var(--baseline) * 1.5);
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    overflow: hidden;
+    border: var(--hairline);
+    background: var(--color-soft);
+  }
+
+  .mermaid {
+    display: grid;
+    width: 100%;
+    margin-inline: auto;
+    place-items: center;
+  }
+
+  .mermaid-diagram--compact .mermaid {
+    max-width: 18rem;
+  }
+
+  .mermaid-diagram--standard .mermaid {
+    max-width: 38rem;
+  }
+
+  .mermaid-diagram--wide .mermaid {
+    max-width: 42rem;
+  }
+
+  .mermaid:not([data-processed='true']) {
+    visibility: hidden;
+  }
+
+  .mermaid :global(svg) {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto;
+  }
+
+  @media (max-width: 42rem) {
+    .mermaid-diagram {
+      margin-inline: calc(var(--baseline) * -0.5);
+      width: calc(100% + var(--baseline));
+      padding: 0.75rem;
+    }
+  }
+</style>

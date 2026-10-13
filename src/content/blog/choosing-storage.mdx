@@ -1,0 +1,262 @@
+---
+title: 'Why I Chose BadgerDB for Strata'
+publishDate: 2026-10-13
+tags:
+  - go
+  - storage
+  - databases
+  - systems-design
+description: 'How BadgerDB stores data using an LSM tree, SSTables, MVCC, and a separate value log, and why that design fits Strata.'
+draft: false
+---
+
+import Mermaid from '../../components/Mermaid.astro';
+
+When I started building Strata, PostgreSQL was the safe choice for metadata. I know how to operate it, transactions are familiar, and modeling manifests and chunk references as tables would have been straightforward.
+
+Still, something felt mismatched.
+
+Strata is a content-addressed storage system. Most metadata operations have a shape closer to this:
+
+```text
+manifest:<hash>  ->  encoded manifest
+chunk:<hash>     ->  chunk metadata
+```
+
+There are no joins in the hot path. Strata usually has an identifier and wants the record behind it. Adding a database server, a network connection, and a relational model was possible, but it was more machinery than that access pattern required.
+
+This led me to [BadgerDB](https://github.com/dgraph-io/badger), an embedded key-value database written in Go. The API was a good fit, but the API alone was not enough reason to choose it. I wanted to understand what would happen after calling `txn.Set`: where the bytes went, how they came back, and what maintenance work accumulated in the background.
+
+That trail goes through LSM trees, SSTables, compaction, and the part that distinguishes Badger from a conventional LSM database: its value log.
+
+## Embedded changes the boundary
+
+Badger runs inside the Strata process. Opening the database is a library call, and reads and writes do not cross a network:
+
+```go
+db, err := badger.Open(badger.DefaultOptions("./data/metadata"))
+if err != nil {
+	return err
+}
+defer db.Close()
+
+err = db.Update(func(txn *badger.Txn) error {
+	return txn.Set(key, value)
+})
+```
+
+This removes a service from the deployment, not the responsibilities of running a database. Disk space, backups, file permissions, recovery, metrics, and upgrades still exist. It also gives Strata a single-writer ownership model: one process owns that database directory. If several independent services needed to query the same data, PostgreSQL would immediately become more attractive.
+
+For a local metadata index, though, the boundary is useful. Strata owns chunks and manifests; Badger owns transactions, versions, indexes, and recovery.
+
+## Why writes do not update a file in place
+
+A B-tree-oriented database can update pages in place. An LSM tree, short for **Log-Structured Merge Tree**, takes another route: accept writes in memory, flush sorted runs to disk, and merge those runs later.
+
+The key word is _later_. The foreground write avoids finding and rewriting the final location of a record immediately. The database turns many small, scattered updates into larger sequential writes, then pays the organizational cost during compaction.
+
+Here is the simplified shape of that process:
+
+<Mermaid
+  label="Badger write path from a transaction through the value log, memtables, and SSTable levels"
+  size="wide"
+  chart={`flowchart TB
+    subgraph WRITE["Foreground write"]
+      direction LR
+      A["1 · Commit<br/>transaction"] --> B["2 · Append value<br/>to value log"] --> C["3 · Insert key + pointer<br/>into memtable"]
+    end
+
+    subgraph ORGANIZE["Background organization"]
+      direction LR
+      D["4 · Freeze full<br/>memtable"] --> E["5 · Flush Level 0<br/>SSTable"] --> F["6 · Compact into<br/>lower levels"]
+    end
+
+    WRITE --> ORGANIZE`}
+
+/>
+
+The diagram leaves out concurrency and recovery details, but it captures the important split: recent writes live in memtables; older data lives in immutable tables on disk.
+
+### The memtable is already sorted
+
+A memtable is not just a `map`. Badger uses an ordered in-memory structure, implemented as a skip list, so entries can be traversed by key. Reads can query it, and a flush can emit its contents in order.
+
+When the active memtable reaches its size limit, Badger rotates it. That table becomes immutable, a new active memtable accepts writes, and the old one waits to be flushed. This keeps foreground writes moving while persistence catches up.
+
+The flush produces an **SSTable**, or Sorted String Table.
+
+## What is inside an SSTable?
+
+The name makes an SSTable sound like a text file. It is not. It is an immutable binary file whose entries are sorted by key.
+
+Imagine three flushed tables:
+
+```text
+table A:  chunk:01  chunk:08  manifest:20
+table B:  chunk:03  chunk:09  manifest:21
+table C:  chunk:01  chunk:12  manifest:22
+```
+
+`chunk:01` appears twice because the key was written again after table A had already been created. Badger does not open table A and patch the old record. The newer version is written elsewhere.
+
+An SSTable is divided into blocks and carries metadata that makes searching cheaper. Its index points to candidate blocks, and a Bloom filter can answer a useful negative question: “this table definitely does not contain that key.” A Bloom filter can produce a false positive, but not a false negative. In other words, Badger may inspect an unnecessary table, but it will not skip a table that really contains the key.
+
+Immutability buys several things at once:
+
+- flushes and compactions can write files sequentially;
+- readers do not observe half-rewritten table contents;
+- indexes and checksums describe data that will not change underneath them;
+- old files can be removed only after no reader needs them.
+
+The cost is duplication. Several tables may contain different versions of the same logical key, so reads need an order of precedence and the database eventually needs to clean up.
+
+## Levels and compaction
+
+Badger organizes SSTables into levels. Freshly flushed files enter level 0. Their key ranges may overlap because each file represents a different moment in time:
+
+<Mermaid
+  label="Compaction merges overlapping Level 0 SSTables into non-overlapping ranges in lower levels"
+  size="wide"
+  chart={`flowchart TB
+    subgraph L0["Level 0 · ranges overlap"]
+      direction LR
+      A["SSTable A<br/>a–m"] ~~~ B["SSTable B<br/>f–t"] ~~~ C["SSTable C<br/>n–z"]
+    end
+
+    L0 --> M["Compaction<br/>merge sorted streams · discard obsolete versions"]
+    M --> L1
+
+    subgraph L1["Lower level · ranges do not overlap"]
+      direction LR
+      D["a–g"] ~~~ E["h–n"] ~~~ F["o–u"] ~~~ G["v–z"]
+    end`}
+
+/>
+
+That overlap means a lookup may need to inspect multiple level-0 tables. In lower levels, tables are arranged into non-overlapping key ranges within each level:
+
+Compaction selects tables from one level, merges their sorted streams with overlapping tables in the next level, and writes new SSTables. Because the inputs are sorted, this is a merge rather than a full sort.
+
+During that merge, Badger can discard data that is no longer needed: superseded versions, expired entries, and deletion markers, provided no active read still depends on them. The old input files are removed after the replacement is installed safely.
+
+Compaction is not an occasional cleanup command. It is part of the normal write path, only deferred and performed in the background. If level 0 grows faster than it can be compacted, Badger applies backpressure. Otherwise writes could create overlapping files forever while reads became progressively more expensive.
+
+This is the central LSM trade-off:
+
+- writes are cheap to accept because they first land in append-friendly and in-memory structures;
+- reads may consult more than one structure;
+- background compaction rewrites data to keep future reads under control.
+
+The repeated rewriting is called **write amplification**. If the application writes 1 GiB but flushing and compaction cause the device to receive 4 GiB, the write amplification is 4x. The exact number depends on key and value sizes, update frequency, level sizing, and workload. “LSM trees are fast” is too broad to be useful without those details.
+
+## Badger's twist: keep large values out of the LSM tree
+
+Badger is based on the ideas in the [WiscKey paper](https://www.usenix.org/conference/fast16/technical-sessions/presentation/lu). WiscKey starts with an observation: moving keys during compaction is relatively cheap; repeatedly moving large values is not.
+
+Badger therefore separates them. The LSM tree stores keys and small values. Values above a configurable threshold are appended to a **value log**, while the tree stores a pointer containing enough information to locate the value.
+
+<Mermaid
+  label="Badger stores small values in the LSM tree and uses pointers to locate larger values in the value log"
+  size="compact"
+  chart={`flowchart TB
+    W["Write"] --> Q{"Value size"}
+    Q --> I["At or below threshold<br/>LSM tree: key + inline value"]
+    Q --> P["Above threshold<br/>LSM tree: key + pointer"]
+    P --> V["Value log<br/>value bytes"]`}
+
+/>
+
+Now an LSM compaction can move the key and its small pointer without copying the full manifest each time. The larger the values, the more this separation can reduce write amplification.
+
+It is not free. A point read may first find the pointer in the LSM tree and then perform another read in the value log. Range scans are also less sequential because values are not necessarily stored in key order. This design makes sense on SSDs, where random reads are much cheaper than on spinning disks; Badger was designed with that trade-off in mind.
+
+Small values may stay inline in the LSM tree. That avoids an extra lookup when a pointer would cost nearly as much as the value itself. The threshold is configurable, which is one of the settings worth measuring instead of tuning by instinct.
+
+## A write, step by step
+
+Suppose Strata writes `manifest:abc123` in a transaction.
+
+1. Badger validates the transaction and assigns the commit version used by its MVCC machinery.
+2. The write enters Badger's log-based persistence path. Large values are appended to the value log; the LSM entry contains the key, version, metadata, and value or value pointer.
+3. The LSM entry is inserted into the active memtable, making it available to reads.
+4. Once the memtable fills, it becomes immutable and is flushed as a level-0 SSTable.
+5. Background compaction eventually moves the entry through lower levels.
+
+Badger can batch work from concurrent transactions in this path, reducing the number of storage operations. Durability still depends on configuration. In particular, `SyncWrites` controls whether a commit waits for data to be synchronized to stable storage. Turning synchronization off can improve throughput, but an operating-system or machine crash may lose recently acknowledged writes. That is a product decision, not a harmless performance flag.
+
+One detail is easy to miss: in Badger, the value log also participates in crash recovery. It is not merely a heap of detached values. On startup, Badger can replay committed log entries that had not yet made it into an SSTable. The ordering between logging and publishing entries to the memtable is what prevents an acknowledged transaction from existing only in volatile memory.
+
+## A read, step by step
+
+Reads travel in the opposite direction, from newer structures toward older ones.
+
+For `manifest:abc123`, Badger roughly does this:
+
+1. choose the version visible to the transaction's read timestamp;
+2. check the active and immutable memtables;
+3. search candidate SSTables, starting with newer levels and using indexes and Bloom filters to avoid unnecessary reads;
+4. select the newest visible version of the key;
+5. return an inline value or follow its pointer into the value log.
+
+Badger uses **MVCC**, Multi-Version Concurrency Control. Internally, versions let one transaction keep reading a stable snapshot while another commits a newer value.
+
+```text
+manifest:abc123 @ 42  -> old manifest
+manifest:abc123 @ 57  -> new manifest
+```
+
+A transaction reading at timestamp 50 must see version 42, even though version 57 exists. This is why compaction cannot blindly keep only the latest bytes it finds. It has to respect active snapshots and Badger's configured version-retention rules.
+
+Deletes use the same model. A delete writes a tombstone, a marker saying that older versions should no longer be visible. The older bytes disappear later, when compaction or value-log garbage collection can prove they are no longer needed.
+
+## Compaction and value-log GC solve different problems
+
+This distinction took me a while to internalize.
+
+**LSM compaction** reorganizes sorted key entries. **Value-log garbage collection** reclaims space occupied by obsolete values. Running one does not replace the other.
+
+Consider three updates:
+
+```text
+manifest:abc123 -> value A
+manifest:abc123 -> value B
+manifest:abc123 -> value C
+```
+
+After compaction, the LSM tree may only need the pointer to C. The bytes for A and B can still be sitting in an older value-log file. Log files are append-only, so Badger cannot punch out two arbitrary records in the middle and shrink the file.
+
+`RunValueLogGC()` looks for a value-log file with enough discardable data, copies its still-live entries forward, and makes the old file removable. The call may legitimately report that no rewrite is worthwhile. Applications normally invoke it periodically and stop when Badger says there is nothing else to collect.
+
+For Strata, this has an operational consequence: monitoring the database directory matters. A workload that repeatedly overwrites metadata can leave dead values behind even when the number of live keys stays flat.
+
+## Where the abstraction stops
+
+Badger can make a metadata transaction atomic. It cannot make a transaction spanning Badger and Strata's chunk files atomic by itself.
+
+Suppose Strata writes five chunks and then stores a manifest. A crash between those steps can leave unreferenced chunks. Reversing the order risks a manifest that points to missing chunks. The database does not know enough to repair either state.
+
+That boundary needs its own protocol: write chunks first, commit the manifest last, and let Strata's garbage collector eventually remove chunks that no committed manifest references. Badger handles database consistency; Strata still has to handle storage-system consistency.
+
+Backups have a similar boundary. Copying live Badger files with a generic filesystem command is not automatically a consistent backup. Badger provides backup and restore APIs, but a complete Strata backup also needs to coordinate the metadata snapshot with the chunk store.
+
+## Why not PostgreSQL?
+
+PostgreSQL would solve this problem and leave more room for ad hoc queries, multiple clients, remote access, replicas, and mature operational tooling. I am not avoiding it because it is slow or because relational databases are somehow unsuitable for storage metadata.
+
+I chose Badger because Strata currently has a narrower shape:
+
+- one process owns the metadata store;
+- lookups are primarily by key or prefix;
+- the deployment should remain a single binary plus its data directory;
+- Go-native transactions are more useful here than SQL queries;
+- the amount of operational infrastructure should stay small while the design is still changing.
+
+Those assumptions are part of the decision. If Strata grows into several services sharing metadata, needs rich relational queries, or requires independent database scaling, keeping Badger out of habit would be the wrong call.
+
+For now, the fit is good. More importantly, it is a fit I can explain below the API: a write moves through the value log and memtable, becomes an SSTable, is reorganized by compaction, and may later require value-log garbage collection. That is the machinery I am choosing to place under Strata's metadata, along with the trade-offs that come with it.
+
+## Further reading
+
+- [BadgerDB repository and design notes](https://github.com/dgraph-io/badger)
+- [WiscKey: Separating Keys from Values in SSD-conscious Storage](https://www.usenix.org/conference/fast16/technical-sessions/presentation/lu)
+- [Badger package documentation](https://pkg.go.dev/github.com/dgraph-io/badger/v4)
