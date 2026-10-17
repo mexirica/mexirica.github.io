@@ -1,0 +1,37 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getTranslator, PREFIXED_LOCALES, type Locale } from '../../../i18n';
+import { getPageStrings } from '../../../i18n/pages';
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.map((locale) => ({ params: { locale }, props: { locale } }));
+}
+
+const { locale } = Astro.props as { locale: Locale };
+const t = getTranslator(locale);
+const copy = getPageStrings(locale);
+---
+
+<BaseLayout locale={locale} title={t('about.title')} description={copy.aboutDescription}>
+  <section class="page-head section">
+    <p class="eyebrow">{t('about.eyebrow')}</p>
+    <h1>{copy.aboutHeading}</h1>
+    <p class="lead">{copy.aboutLead}</p>
+  </section>
+
+  <section class="section prose-grid">
+    <div>
+      <p class="eyebrow">{copy.aboutProfileEyebrow}</p>
+      <h2>{copy.aboutProfileHeading}</h2>
+    </div>
+    <div class="prose-stack">{copy.aboutProfile.map((paragraph) => <p>{paragraph}</p>)}</div>
+  </section>
+
+  <section class="section prose-grid about-closing">
+    <div>
+      <p class="eyebrow">{copy.aboutSiteEyebrow}</p>
+      <h2>{copy.aboutSiteHeading}</h2>
+    </div>
+    <div class="prose-stack"><p>{copy.aboutSite}</p></div>
+  </section>
+</BaseLayout>

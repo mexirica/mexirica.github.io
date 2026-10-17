@@ -4,10 +4,11 @@ import type { APIContext } from 'astro';
 import { withBase } from '../lib/url';
 import { SITE } from '../consts';
 import { locale } from '../i18n';
+import { postPath, postsForLocale, sortPosts } from '../lib/content';
 
 export async function GET(context: APIContext) {
-  const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
-    (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf(),
+  const posts = sortPosts(
+    postsForLocale(await getCollection('blog', ({ data }) => !data.draft), 'en'),
   );
 
   return rss({
@@ -20,7 +21,7 @@ export async function GET(context: APIContext) {
       title: post.data.title,
       description: post.data.description,
       pubDate: post.data.publishDate,
-      link: withBase(`/blog/${post.id}/`),
+      link: withBase(postPath(post)),
       categories: post.data.tags,
     })),
   });

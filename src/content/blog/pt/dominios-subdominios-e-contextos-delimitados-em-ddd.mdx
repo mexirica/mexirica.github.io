@@ -1,0 +1,227 @@
+---
+title: 'Domínios, subdomínios e contextos delimitados em DDD'
+publishDate: 2026-10-15
+locale: pt
+translationKey: domains-and-subdomains-in-ddd
+slug: dominios-subdominios-e-contextos-delimitados-em-ddd
+tags:
+  - domain-driven-design
+  - software-design
+  - architecture
+  - modeling
+description: 'Como domínios, subdomínios e contextos delimitados resolvem problemas de design diferentes e como usar essas distinções sem transformá-las automaticamente em fronteiras de serviços.'
+draft: false
+---
+
+Discussões sobre design de software frequentemente começam pelas soluções: esquemas de banco de dados, endpoints, entidades, filas e serviços.
+
+Quase sempre é cedo demais.
+
+Antes de dividir um sistema, precisamos entender o que a empresa faz, quais regras devem permanecer juntas e onde uma mesma palavra assume significados diferentes. Sem isso, as fronteiras técnicas são apenas suposições que mudam assim que as regras reais aparecem.
+
+O Domain-Driven Design (DDD) oferece um vocabulário para esse trabalho. Três de seus conceitos mais úteis são o **domínio**, seus **subdomínios** e os **contextos delimitados** usados para modelá-los.
+
+Eles se relacionam, mas não são equivalentes:
+
+- o **domínio** é a área de negócio atendida pelo software;
+- um **subdomínio** é uma capacidade distinta dentro desse negócio;
+- um **contexto delimitado** é a fronteira na qual um modelo e uma linguagem permanecem consistentes.
+
+Manter essas diferenças claras torna as decisões arquiteturais posteriores muito mais simples.
+
+## Comece pelo domínio
+
+Um domínio representa a área de conhecimento, atividade ou especialidade tratada por um sistema.
+
+Considere um e-commerce. Sua operação pode incluir gestão de produtos, processamento de pedidos, pagamentos, estoque e entregas. Em conjunto, essas atividades formam o domínio de negócio apoiado pelo software.
+
+Entender o domínio exige mais do que listar entidades. Um produto não é apenas um registro com nome e preço. Ele pode possuir regras de precificação, restrições de disponibilidade, condições contratuais ou relações com outros produtos.
+
+Da mesma forma, um pedido não é apenas uma coleção de itens. Seu ciclo de vida pode envolver autorização de pagamento, reserva de estoque, políticas de cancelamento e regras de expedição.
+
+Essas regras definem como o negócio opera. Modelar o domínio significa representar no software os conceitos e as restrições relevantes de maneira explícita.
+
+A primeira pergunta, portanto, não é “como devemos organizar o código?”, mas “o que o negócio precisa decidir, fazer cumprir e lembrar?”.
+
+## Divida o problema em subdomínios
+
+Domínios grandes contêm diferentes áreas de responsabilidade. Tratá-las como um único problema torna mais difícil compreender o negócio e localizar sua complexidade.
+
+DDD chama essas partes de **subdomínios**: capacidades distintas dentro do domínio geral.
+
+Uma plataforma de comércio eletrônico pode conter:
+
+| Subdomínio | Responsabilidade principal                                |
+| ---------- | --------------------------------------------------------- |
+| Catálogo   | Organizar e apresentar informações de produtos            |
+| Pedidos    | Gerenciar criação, alterações e ciclo de vida dos pedidos |
+| Pagamentos | Autorizar, capturar e estornar pagamentos                 |
+| Estoque    | Controlar disponibilidade e reservar itens                |
+| Logística  | Coordenar expedição e entrega                             |
+| Clientes   | Manter informações e regras relacionadas ao cliente       |
+
+Essa decomposição é ilustrativa, não universal. As fronteiras dependem do negócio real, de sua operação e das regras que distinguem cada responsabilidade.
+
+Uma empresa pequena pode combinar estoque e logística. Um marketplace talvez precise separar vendedores, anúncios e estoque. Uma companhia que compete por preço pode tratar precificação como uma área estratégica independente.
+
+O objetivo não é produzir o maior número possível de caixas. É encontrar capacidades coesas, com regras, termos, decisões e conhecimentos próprios.
+
+Por isso, **um subdomínio representa um problema de negócio, não necessariamente um componente de software**. Ele pode ser implementado como um módulo de um monólito, um grupo de componentes ou um ou mais serviços.
+
+## Classifique o valor estratégico
+
+DDD distingue subdomínios core, de suporte e genéricos. Essa classificação indica onde o conhecimento especializado gera mais valor, onde uma implementação própria se justifica e onde uma solução existente pode bastar.
+
+### Core domain
+
+O core domain é a parte do negócio responsável por sua principal vantagem competitiva.
+
+Duas empresas de e-commerce podem ter prioridades muito diferentes. Uma compete pela variedade e pela eficiência logística. Outra usa algoritmos próprios para ajustar preços segundo demanda, concorrência e comportamento de compra.
+
+Para a segunda, precificação dinâmica pode pertencer ao core domain; para a primeira, logística ou gestão de fornecedores pode ser mais estratégica.
+
+A classificação depende da estratégia, não da dificuldade técnica. Uma integração difícil não é automaticamente core, enquanto poucas linhas de código podem representar uma capacidade decisiva para o negócio.
+
+Um core domain merece análise mais profunda, colaboração próxima com especialistas e modelos capazes de expressar as regras que diferenciam a empresa. Isso não significa maximizar a complexidade, mas resolver muito bem o problema certo.
+
+### Subdomínio de suporte
+
+Um subdomínio de suporte é necessário para a operação, mas não constitui sua principal vantagem competitiva.
+
+Uma ferramenta interna para editar descrições, categorias e informações básicas do catálogo pode ser essencial sem diferenciar a empresa de seus concorrentes. Nesse caso, o catálogo pode ser um subdomínio de suporte.
+
+Ele ainda pode conter regras relevantes e exigir cuidado. A diferença é estratégica: talvez não haja motivo para investir em uma solução altamente especializada quando um design simples atende às necessidades.
+
+“De suporte” não significa irrelevante. Significa que a capacidade sustenta o negócio, em vez de definir sua vantagem principal.
+
+### Subdomínio genérico
+
+Um subdomínio genérico é necessário, mas não exclusivo daquele negócio.
+
+Autenticação é o exemplo clássico. Muitos sistemas precisam identificar usuários e aplicar políticas de acesso; poucos precisam construir uma plataforma de identidade inédita. Um provedor existente costuma atender melhor a essa necessidade.
+
+Envio de e-mails, geração de documentos e funções administrativas comuns também podem ser genéricos. Ainda assim, a classificação depende do contexto: identidade pode ser central para uma empresa que oferece justamente uma plataforma de identidade.
+
+Essa classificação não é permanente. Uma capacidade genérica pode se tornar core após uma mudança de estratégia, e um antigo diferencial pode virar commodity à medida que o mercado amadurece.
+
+## Use a estratégia para orientar o investimento
+
+Classificar subdomínios ajuda a definir prioridades, mas não determina automaticamente a arquitetura.
+
+Catálogo, pedidos e pagamentos sugerem modelos com responsabilidades claras. Isso não prova que três microsserviços sejam necessários.
+
+Um monólito modular pode oferecer isolamento suficiente e manter implantação e operação simples. Serviços separados podem fazer sentido quando implantação independente, escala, propriedade organizacional ou outro requisito concreto justificarem o custo adicional.
+
+**Fronteiras de negócio e fronteiras de implantação se relacionam, mas não são intercambiáveis.**
+
+A análise de subdomínios identifica os problemas que o sistema precisa resolver. Uma análise arquitetural posterior decide como organizar o software que os resolve.
+
+Essa classificação orienta o investimento em engenharia, mas não constitui uma regra rígida. Segurança, confiabilidade, requisitos regulatórios, custos de integração e restrições operacionais também precisam ser considerados.
+
+## Diferencie subdomínios e contextos delimitados
+
+Uma das distinções mais importantes de DDD é aquela entre subdomínio e contexto delimitado.
+
+Um **subdomínio descreve uma parte do problema de negócio**. Um **contexto delimitado define onde um modelo e sua linguagem são consistentes**.
+
+| Conceito            | Pergunta principal                             | Espaço   | Resultado típico                             |
+| ------------------- | ---------------------------------------------- | -------- | -------------------------------------------- |
+| Domínio             | Em qual negócio estamos?                       | Problema | Compreensão da área de negócio               |
+| Subdomínio          | Qual capacidade estamos examinando?            | Problema | Decomposição das responsabilidades           |
+| Contexto delimitado | Onde este modelo e esta linguagem são válidos? | Solução  | Fronteira de modelo e contrato de integração |
+
+Essa distinção entre espaço do problema e espaço da solução é útil, mas não representa um mapeamento mecânico: a análise do negócio orienta o modelo de software, mas não o determina automaticamente.
+
+Considere o conceito de produto.
+
+No catálogo, um produto pode conter identificador, nome, descrição, preço, categorias, imagens e disponibilidade. No contexto de pedidos, uma linha de pedido talvez precise apenas do identificador, da descrição, da quantidade e do preço acordado quando o pedido foi feito.
+
+O pedido não precisa carregar o modelo inteiro do catálogo. Mais importante: o preço registrado em um pedido já existente não deve mudar quando o preço atual do catálogo mudar. O catálogo é dono da oferta atual; o pedido é dono do acordo histórico feito com o cliente.
+
+São modelos diferentes para propósitos diferentes. Contextos delimitados tornam essas fronteiras explícitas. Dentro de um contexto, linguagem e regras devem ter significado consistente; entre contextos, a relação entre os modelos precisa ser compreendida e administrada.
+
+Por isso, um único modelo compartilhado globalmente pode se tornar problemático: conforme as áreas evoluem, seus requisitos divergem e mudanças em uma delas podem produzir efeitos imprevistos nas demais.
+
+### O mapeamento não é um para um
+
+Em um sistema simples, um subdomínio pode corresponder a um contexto delimitado. Essa é uma hipótese inicial útil, não uma regra.
+
+Um subdomínio complexo pode exigir vários modelos. Logística, por exemplo, pode ter contextos distintos para planejamento de armazém e entrega final. Em sentido contrário, um sistema pequeno pode manter capacidades simples de suporte no mesmo contexto, desde que os modelos continuem claros.
+
+A pergunta certa não é “quantos contextos este subdomínio deve ter?”, mas “onde este modelo deixa de ser internamente consistente?”.
+
+### Contexto delimitado não é microsserviço
+
+Contexto delimitado é uma fronteira de modelo. Microsserviço é uma fronteira de implantação.
+
+Um contexto pode existir em um módulo de um monólito. Um serviço pode conter mais de um contexto se as fronteiras continuarem explícitas. Um contexto grande pode ser distribuído em vários processos por motivos de escala ou confiabilidade.
+
+Microsserviços também introduzem falhas de rede, contratos versionados, observabilidade, coordenação de implantações e trade-offs de consistência dos dados. Esses custos precisam de justificativa operacional; descobrir um subdomínio não é suficiente.
+
+## Como identificar subdomínios na prática
+
+Identificar subdomínios é uma atividade de análise de negócio, não apenas um exercício técnico.
+
+### 1. Mapeie capacidades de negócio
+
+Liste as atividades necessárias para entregar o produto ou serviço. O mapa inicial não precisa corresponder à arquitetura final.
+
+### 2. Siga decisões, regras e invariantes
+
+Vá além de substantivos como `Produto`, `Cliente` e `Pedido`.
+
+Quando um pedido pode ser cancelado? Quando o estoque é reservado? Um pagamento pode ser capturado duas vezes? O que ocorre quando um produto fica indisponível depois do checkout?
+
+Respostas diferentes revelam responsabilidades distintas. Observe quem toma cada decisão e de quais informações precisa.
+
+Se duas atividades usam regras diferentes, mudam por motivos diferentes ou exigem especialistas diferentes, talvez pertençam a subdomínios distintos.
+
+### 3. Encontre a vantagem competitiva
+
+Identifique as capacidades que diferenciam a empresa. Elas são candidatas ao core domain e merecem investigação adicional com pessoas que conhecem a estratégia, não apenas com desenvolvedores lendo o código atual.
+
+### 4. Reconheça capacidades genéricas
+
+Determine quais necessidades são comuns a muitas empresas e se produtos existentes podem atendê-las. A intenção não é terceirizar tudo, mas evitar soluções especializadas sem justificativa de negócio.
+
+### 5. Explicite relações e propriedade
+
+Identifique dependências, trocas de informação e os responsáveis por cada regra. Pedidos, por exemplo, podem depender de informações do catálogo e dos resultados de pagamento sem serem donos desses modelos.
+
+Esse trabalho é iterativo. Conversas com especialistas, mapeamento de processos e EventStorming ajudam, mas exceções reais são ainda mais reveladoras. Incidentes de produção e soluções alternativas manuais frequentemente expõem regras que o modelo atual não conseguiu representar.
+
+## Sinais de que uma fronteira está errada
+
+Nenhum diagrama prova que uma decomposição está correta. Alguns sinais recorrentes indicam que ela merece revisão:
+
+- o mesmo termo possui significados conflitantes em fluxos diferentes;
+- um modelo acumula campos opcionais usados por funcionalidades sem relação;
+- uma pequena mudança de negócio exige alterações coordenadas em muitos módulos;
+- várias áreas escrevem os mesmos dados sem propriedade clara;
+- equipes precisam conhecer regras internas umas das outras para mudanças rotineiras;
+- um serviço apenas encaminha chamadas e não possui responsabilidade coesa.
+
+Esses sintomas não prescrevem uma solução. Eles nos convidam a voltar às regras e perguntar se o modelo agrupa as decisões certas.
+
+## Uma sequência prática de decisão
+
+Ao explorar uma área de negócio desconhecida:
+
+1. Descreva o resultado de negócio sem citar tecnologias.
+2. Identifique capacidades, regras, decisões e especialistas.
+3. Classifique subdomínios segundo a estratégia atual.
+4. Localize onde termos ou regras exigem modelos independentes.
+5. Defina propriedade e contratos entre esses modelos.
+6. Só então escolha módulos, bancos de dados, processos e fronteiras de implantação.
+
+Não se trata de uma cascata. O aprendizado durante a implementação pode revelar uma hipótese errada sobre o domínio. O objetivo é manter escolhas técnicas ligadas a uma compreensão explícita do problema.
+
+## Conclusão
+
+Domain-Driven Design começa pela compreensão do problema de negócio, e não pela escolha isolada de abstrações técnicas.
+
+Subdomínios dividem esse problema em áreas significativas. Classificá-los como core, de suporte ou genéricos ajuda a decidir onde investir em modelagem especializada e onde soluções existentes podem ser suficientes.
+
+Contextos delimitados tratam de outra questão: definir onde um modelo e sua linguagem permanecem consistentes.
+
+O resultado não precisa ser uma coleção de microsserviços, nem todo substantivo do negócio precisa virar uma entidade. O objetivo é construir um modelo fiel ao negócio, dar um lugar claro às regras importantes e permitir que diferentes partes do sistema evoluam sem compartilhar significados que, na prática, não possuem.

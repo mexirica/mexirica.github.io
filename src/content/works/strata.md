@@ -1,6 +1,8 @@
 ---
 title: 'Strata'
 description: 'An experimental single-node, content-addressed file store written in Go.'
+locale: en
+translationKey: strata
 tech:
   - Go
   - Content-Addressed Storage

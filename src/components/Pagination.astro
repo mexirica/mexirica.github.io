@@ -1,12 +1,14 @@
 ---
 import type { Page } from 'astro';
-import { t } from '../i18n';
+import { getTranslator, type Locale } from '../i18n';
 
 interface Props {
   page: Page<unknown>;
+  locale?: Locale;
 }
 
-const { page } = Astro.props;
+const { page, locale = 'en' } = Astro.props;
+const t = getTranslator(locale);
 
 // `paginate()` already prepends the configured `base`; just normalise the
 // trailing slash so links match the rest of the site and skip the

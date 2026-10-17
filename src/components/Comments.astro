@@ -2,7 +2,14 @@
 // Giscus comments — opt-in. Everything below (markup, styles, *and* script)
 // sits behind the `enabled` check, so a default build ships zero Giscus bytes.
 import { GISCUS } from '../consts';
-import { t } from '../i18n';
+import { getTranslator, type Locale } from '../i18n';
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = 'en' } = Astro.props;
+const t = getTranslator(locale);
 
 // Guard on the IDs too: a half-filled config would render a widget that can
 // never resolve a discussion.
@@ -33,7 +40,7 @@ const discussionsLink = `<a href="${discussionsUrl}" target="_blank" rel="noopen
         data-strict={GISCUS.strict ? '1' : '0'}
         data-reactions-enabled={GISCUS.reactionsEnabled ? '1' : '0'}
         data-input-position={GISCUS.inputPosition}
-        data-lang={GISCUS.lang}
+        data-lang={locale}
         data-light-theme={GISCUS.lightTheme}
         data-dark-theme={GISCUS.darkTheme}
       >

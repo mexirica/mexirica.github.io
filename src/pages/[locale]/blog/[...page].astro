@@ -1,0 +1,67 @@
+---
+import { getCollection, render } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Pagination from '../../../components/Pagination.astro';
+import PostEntry from '../../../components/PostEntry.astro';
+import { collectTags, postsForLocale, sortPosts } from '../../../lib/content';
+import { localizedPath, withBase } from '../../../lib/url';
+import { getTranslator, PREFIXED_LOCALES, readingTimeFor, type Locale } from '../../../i18n';
+import { getPageStrings } from '../../../i18n/pages';
+
+export const getStaticPaths = (async ({ paginate }) => {
+  const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+  return PREFIXED_LOCALES.flatMap((locale) => {
+    const posts = sortPosts(postsForLocale(allPosts, locale));
+    return paginate(posts, {
+      params: { locale },
+      pageSize: 10,
+      props: { locale, allTags: collectTags(posts) },
+    });
+  });
+}) satisfies GetStaticPaths;
+
+const { page, allTags, locale } = Astro.props as typeof Astro.props & { locale: Locale };
+const t = getTranslator(locale);
+const copy = getPageStrings(locale);
+const readingTimes = new Map(
+  await Promise.all(
+    page.data.map(async (post) => {
+      const { remarkPluginFrontmatter } = await render(post);
+      return [post.id, readingTimeFor(remarkPluginFrontmatter.minutesRead, locale)] as const;
+    }),
+  ),
+);
+const pageTitle =
+  page.currentPage === 1 ? t('blog.title') : t('blog.titlePaged', { page: page.currentPage });
+---
+
+<BaseLayout locale={locale} title={pageTitle} description={copy.blogDescription}>
+  <section class="page-head section">
+    <p class="eyebrow">{t('blog.eyebrow')}</p>
+    <h1>{copy.blogHeading}</h1>
+    <p class="lead">{copy.blogLead}</p>
+  </section>
+  <section class="section content-index" aria-label={t('blog.listLabel')}>
+    <div class="index-sidebar">
+      <p class="eyebrow">{t('blog.tagsEyebrow')}</p>
+      <nav class="tag-cloud" aria-label={t('blog.tagsNavLabel')}>
+        {
+          allTags.map((tag: string) => (
+            <a href={withBase(localizedPath(`/blog/tags/${tag}/`, locale))}>{tag}</a>
+          ))
+        }
+      </nav>
+    </div>
+    <div>
+      <div class="entry-list">
+        {
+          page.data.map((post) => (
+            <PostEntry post={post} locale={locale} readingTime={readingTimes.get(post.id) ?? ''} />
+          ))
+        }
+      </div>
+      <Pagination page={page} locale={locale} />
+    </div>
+  </section>
+</BaseLayout>

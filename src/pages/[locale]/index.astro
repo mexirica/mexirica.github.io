@@ -1,0 +1,130 @@
+---
+import { Image } from 'astro:assets';
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import StructuredData from '../../components/StructuredData.astro';
+import { SITE, SOCIAL_LINKS } from '../../consts';
+import {
+  postPath,
+  postsForLocale,
+  sortPosts,
+  sortWorks,
+  workPath,
+  worksForLocale,
+} from '../../lib/content';
+import { localizedPath, withBase } from '../../lib/url';
+import { formatDateFor, getTranslator, PREFIXED_LOCALES, type Locale } from '../../i18n';
+import { getPageStrings } from '../../i18n/pages';
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.map((locale) => ({ params: { locale }, props: { locale } }));
+}
+
+const { locale } = Astro.props as { locale: Locale };
+const t = getTranslator(locale);
+const copy = getPageStrings(locale);
+const works = sortWorks(worksForLocale(await getCollection('works'), locale)).slice(0, 3);
+const posts = sortPosts(
+  postsForLocale(await getCollection('blog', ({ data }) => !data.draft), locale),
+).slice(0, 3);
+const github = SOCIAL_LINKS.find((link) => link.label === 'GitHub');
+const linkedin = SOCIAL_LINKS.find((link) => link.label === 'LinkedIn');
+const site = Astro.site ?? new URL(Astro.url.origin);
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE.title,
+  description: copy.siteDescription,
+  inLanguage: locale,
+  url: new URL(withBase(localizedPath('/', locale)), site).href,
+};
+---
+
+<BaseLayout locale={locale} description={copy.siteDescription}>
+  <StructuredData slot="head" schema={websiteSchema} />
+  <section class="hero section">
+    <p class="eyebrow">Rodrigo Mecheri</p>
+    <h1>{copy.homeHeading}</h1>
+    <p class="lead">{copy.homeLead}</p>
+    <div class="action-row" aria-label={t('home.primaryLinks')}>
+      <a class="button" href={withBase(localizedPath('/works/', locale))}>{t('home.viewWorks')}</a>
+      <a class="text-link" href={withBase(localizedPath('/blog/', locale))}>{t('home.readNotes')}</a
+      >
+      {
+        github && (
+          <a class="text-link" href={github.href}>
+            GitHub ↗
+          </a>
+        )
+      }
+      {
+        linkedin && (
+          <a class="text-link" href={linkedin.href}>
+            LinkedIn ↗
+          </a>
+        )
+      }
+    </div>
+  </section>
+
+  <section class="section index-feed" aria-labelledby="latest-works">
+    <div class="section-heading">
+      <p class="eyebrow">{t('home.latestWorksEyebrow')}</p>
+      <h2 id="latest-works">{copy.homeWorksHeading}</h2>
+      <a class="text-link" href={withBase(localizedPath('/works/', locale))}>{t('home.allWorks')}</a
+      >
+    </div>
+    <div class="highlight-grid">
+      {
+        works.map((work) => (
+          <article class="highlight-card">
+            {work.data.thumbnail && (
+              <Image src={work.data.thumbnail} alt="" width={720} height={480} loading="lazy" />
+            )}
+            <div>
+              <p class="meta">{formatDateFor(work.data.publishDate, locale, 'short')}</p>
+              <h3>
+                <a href={withBase(workPath(work))}>{work.data.title}</a>
+              </h3>
+              <p>{work.data.description}</p>
+              <ul class="tag-list" aria-label={t('home.workTech', { title: work.data.title })}>
+                {work.data.tech.slice(0, 4).map((tech) => (
+                  <li>{tech}</li>
+                ))}
+              </ul>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section index-feed" aria-labelledby="latest-notes">
+    <div class="section-heading">
+      <p class="eyebrow">{t('home.latestBlogEyebrow')}</p>
+      <h2 id="latest-notes">{copy.homePostsHeading}</h2>
+      <a class="text-link" href={withBase(localizedPath('/blog/', locale))}>{t('home.allPosts')}</a>
+    </div>
+    {
+      posts.length > 0 ? (
+        <div class="note-list">
+          {posts.map((post) => (
+            <article class="note-row">
+              <div>
+                <p class="meta">{formatDateFor(post.data.publishDate, locale, 'short')}</p>
+                <h3>
+                  <a href={withBase(postPath(post))}>{post.data.title}</a>
+                </h3>
+                <p>{post.data.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div class="empty-state compact">
+          <p set:html={t('home.postsEmpty')} />
+        </div>
+      )
+    }
+  </section>
+</BaseLayout>

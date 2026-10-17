@@ -14,6 +14,8 @@ export const ja: UIStrings = {
   'nav.search': '検索',
   'nav.label': 'メインナビゲーション',
   'nav.brandHome': '{site} のホーム',
+  'nav.skip': '本文へ移動',
+  'language.label': '言語',
   'theme.toggle': '配色テーマを切り替える',
   'footer.notes': 'ノート',
   'social.label': 'ソーシャルリンク',
@@ -69,6 +71,8 @@ export const ja: UIStrings = {
   'post.relatedEyebrow': '関連記事',
   'post.breadcrumbHome': 'ホーム',
   'post.breadcrumbBlog': 'ブログ',
+  'post.return': '← すべての記事',
+  'post.tagsLabel': '{title} のタグ',
 
   // Comments (rendered only when GISCUS.enabled)
   'comments.eyebrow': 'コメント',
@@ -82,6 +86,7 @@ export const ja: UIStrings = {
   'works.eyebrow': '制作物',
   'works.listLabel': '厳選した制作物',
   'work.eyebrow': '制作物',
+  'work.return': '← すべての制作物',
   'work.repository': 'リポジトリを見る',
   'work.stackEyebrow': '技術構成',
 

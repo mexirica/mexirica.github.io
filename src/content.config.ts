@@ -10,6 +10,9 @@ const works = defineCollection({
     z.object({
       title: z.string(),
       description: z.string(),
+      locale: z.enum(['en', 'pt', 'it']).default('en'),
+      translationKey: z.string().optional(),
+      slug: z.string().optional(),
       tech: z.array(z.string()),
       link: z.url().optional(),
       repo: z.url().optional(),
@@ -25,6 +28,9 @@ const blog = defineCollection({
     z.object({
       title: z.string(),
       publishDate: z.coerce.date(),
+      locale: z.enum(['en', 'pt', 'it']).default('en'),
+      translationKey: z.string().optional(),
+      slug: z.string().optional(),
       tags: z.array(z.string()).default([]),
       description: z.string(),
       draft: z.boolean().default(false),

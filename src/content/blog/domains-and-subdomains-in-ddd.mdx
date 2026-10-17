@@ -1,0 +1,298 @@
+---
+title: 'Domains, Subdomains, and Bounded Contexts in DDD'
+publishDate: 2026-10-15
+locale: en
+translationKey: domains-and-subdomains-in-ddd
+tags:
+  - domain-driven-design
+  - software-design
+  - architecture
+  - modeling
+description: 'How domains, subdomains, and bounded contexts solve different design problems, and how to use those distinctions without turning them into service boundaries by default.'
+draft: false
+---
+
+Software design discussions often begin with solutions: database schemas, API endpoints, entities, queues, and service boundaries.
+
+That is usually too early.
+
+Before deciding how to split a system, we need to understand what the business does, which rules belong together, and where the same words carry different meanings. Otherwise, technical boundaries are based on guesses and tend to move as soon as the real business rules appear.
+
+Domain-Driven Design (DDD) provides a vocabulary for doing that work. Three of its most useful concepts are the **domain**, its **subdomains**, and the **bounded contexts** used to model them.
+
+They are related, but they are not interchangeable:
+
+- the **domain** is the business area the software supports;
+- a **subdomain** is a distinct capability within that business;
+- a **bounded context** is a boundary within which a particular model and language remain consistent.
+
+Keeping those distinctions clear makes later architectural decisions much easier.
+
+## Start with the domain
+
+A domain represents the area of knowledge, activity, or expertise that a software system addresses.
+
+Consider an e-commerce business. Its operations may involve managing products, processing orders, accepting payments, maintaining inventory, and coordinating deliveries.
+
+Together, these activities form the business domain that the software supports.
+
+Understanding the domain requires more than identifying its main entities. A product is not simply a record containing a name and a price. Depending on the business, it may have pricing rules, availability constraints, contractual conditions, or relationships with other products.
+
+Similarly, an order is not merely a collection of items. Its lifecycle may involve payment authorization, inventory reservation, cancellation policies, and fulfillment rules.
+
+These rules define how the business operates. The purpose of domain modeling is to represent the relevant concepts and constraints explicitly in software.
+
+The first question, therefore, is not “how should we structure the code?” It is “what must the business be able to decide, enforce, and remember?”
+
+## Break the problem into subdomains
+
+Large business domains contain multiple areas of responsibility. Treating all of them as one undifferentiated problem makes it harder to understand the business and determine where complexity belongs.
+
+DDD addresses this by identifying **subdomains**: distinct parts of the overall business domain.
+
+An e-commerce platform might contain the following subdomains:
+
+| Subdomain            | Primary responsibility                                |
+| -------------------- | ----------------------------------------------------- |
+| Product Catalog      | Organizing and exposing product information           |
+| Order Management     | Managing order creation, changes, and lifecycle rules |
+| Payment Processing   | Handling payment authorization, capture, and refunds  |
+| Inventory Management | Tracking availability and reserving stock             |
+| Fulfillment          | Coordinating shipment and delivery                    |
+| Customer Management  | Maintaining customer-related information and rules    |
+
+This is an illustrative decomposition, not a universal model. The boundaries depend on the actual business, its operating model, and the rules that distinguish one responsibility from another.
+
+A smaller business might combine inventory and fulfillment. A marketplace might require separate models for sellers, listings, and inventory. A company competing primarily on pricing might treat pricing as a distinct and strategically important area.
+
+The objective is not to produce as many boxes as possible. It is to find cohesive business capabilities: areas with their own rules, terminology, decisions, and expertise.
+
+That distinction matters because **a subdomain represents a business problem, not necessarily a software component**.
+
+A subdomain can be implemented as a module inside a monolith, a group of components, or one or more distributed services. DDD does not prescribe a deployment architecture simply because a business area has been identified.
+
+## Classify subdomains by strategic value
+
+DDD distinguishes between three types of subdomains: core, supporting, and generic.
+
+This classification helps determine where specialized domain knowledge matters most, where custom implementation is justified, and where existing solutions may be sufficient.
+
+### Core Domain
+
+The core domain represents the part of the business that provides its primary competitive advantage.
+
+It contains capabilities that differentiate the business from its competitors and are strategically important to its success.
+
+Consider two e-commerce companies.
+
+The first competes primarily through an extensive product selection and reliable fulfillment. The second uses proprietary pricing algorithms to adjust prices based on demand, competition, and purchasing behavior.
+
+For the second company, dynamic pricing might be part of the core domain. For the first, fulfillment or supplier management might be more strategically important.
+
+The classification depends on business strategy, not technical complexity. A difficult integration is not automatically a core domain, and a small amount of code can encode a capability that is crucial to the business.
+
+Core domains deserve particular attention because improvements to their models and business rules can directly affect the company's competitive position.
+
+This often means investing in deeper domain analysis, collaborating closely with domain experts, and ensuring that the software accurately represents the rules that distinguish the business.
+
+It does not mean that the implementation must be unnecessarily sophisticated. The goal is to solve the right problem well, not to maximize architectural complexity.
+
+### Supporting Subdomain
+
+A supporting subdomain represents a business capability that is necessary for operations but does not provide the primary competitive advantage.
+
+For example, an e-commerce company may need an internal tool to manage product descriptions, categories, and basic catalog information.
+
+The functionality is essential, but it may not be what distinguishes the company from its competitors.
+
+In that situation, the catalog could be classified as a supporting subdomain.
+
+A supporting subdomain can still contain meaningful business rules and require careful implementation. The distinction is strategic: the company may have little reason to invest in a highly specialized solution when a simpler implementation satisfies its requirements.
+
+Supporting subdomains are often good candidates for straightforward designs that prioritize correctness, maintainability, and operational simplicity.
+
+The important point is that _supporting_ does not mean unimportant. It means that the capability supports the business rather than defining its primary competitive advantage.
+
+### Generic Subdomain
+
+A generic subdomain represents a capability that is required by the business but is not unique to it.
+
+Authentication is a common example. Many applications need to authenticate users, manage identities, and enforce access policies. Most do not need to develop an entirely new identity platform.
+
+An existing identity provider or identity-management product may satisfy these requirements more effectively than a custom implementation.
+
+Other possible examples include generic email delivery, document generation, or common administrative functionality.
+
+The decision should consider the actual requirements. A business operating an identity platform or specializing in fraud detection may have capabilities in these areas that are central to its competitive advantage.
+
+A generic subdomain is not defined by a technology or a particular feature. Its classification depends on the role that capability plays in the business.
+
+The distinction is useful because building everything internally consumes resources that could otherwise be invested in capabilities that matter more strategically.
+
+This classification is also contextual and temporary. A generic capability can become core when the business changes its strategy, and a former differentiator can become generic as the market matures. It is worth revisiting the classification rather than treating it as a permanent label.
+
+## Let strategy influence investment, not dictate architecture
+
+Classifying subdomains helps establish priorities, but it does not automatically determine the architecture.
+
+Consider a system with separate catalog, order management, and payment responsibilities.
+
+The catalog manages product information. Order management enforces order-related rules. Payment processing handles payment-specific operations and their outcomes.
+
+These responsibilities suggest that each area should have a clear ownership model. They do not, by themselves, establish that three microservices are required.
+
+A modular monolith could provide sufficient isolation while keeping deployment and operations relatively simple. Separate services might become appropriate when independent deployment, scaling, organizational ownership, or other concrete requirements justify the additional complexity.
+
+The distinction is important because **business boundaries and deployment boundaries are related, but they are not interchangeable**.
+
+Subdomain analysis helps identify the problems the system must solve. Further architectural analysis determines how to organize the software that solves them.
+
+The classification also helps allocate engineering effort.
+
+A core domain may justify specialized models and extensive domain analysis. A supporting subdomain may benefit from a simpler implementation. A generic subdomain may be a candidate for an established third-party solution.
+
+These are starting points for architectural decisions, not rigid rules. Security, reliability, regulatory requirements, integration costs, and operational constraints still matter.
+
+## Separate subdomains from bounded contexts
+
+One of the most important distinctions in DDD is the difference between a subdomain and a bounded context.
+
+A **subdomain describes a part of the business problem**. A **bounded context defines the boundary within which a particular domain model and its language are consistent**.
+
+The two concepts address different aspects of the design.
+
+| Concept         | Main question                               | Belongs to     | Typical outcome                                     |
+| --------------- | ------------------------------------------- | -------------- | --------------------------------------------------- |
+| Domain          | What business are we in?                    | Problem space  | A shared understanding of the business area         |
+| Subdomain       | Which distinct capability are we examining? | Problem space  | A decomposition of business responsibilities        |
+| Bounded context | Where is this model and language valid?     | Solution space | An explicit model boundary and integration contract |
+
+This problem-space versus solution-space distinction is useful, but it should not be read as a mechanical mapping. Analysis of the business informs the software model; it does not generate one automatically.
+
+Consider the concept of a product in an e-commerce system.
+
+In the catalog, a product might contain:
+
+- A product identifier.
+- A name and description.
+- A list price.
+- Categories and images.
+- Publication and availability information.
+
+In the order management context, the same product may be represented differently. An order line might contain a product identifier, description, quantity, and the price agreed upon when the order was placed.
+
+The order does not need the entire catalog model. More importantly, the price recorded for an existing order should not change simply because the current catalog price changes. The catalog owns the current offer; the order owns the historical agreement made with the customer.
+
+These models serve different purposes. They can represent related business concepts without sharing the same structure or rules.
+
+This is one reason why using a single, globally shared model across an entire system can become problematic. As different areas evolve, their requirements may diverge, and changes in one area can create unintended consequences elsewhere.
+
+Bounded contexts establish explicit boundaries around models. Within a context, terminology and business rules should have consistent meanings. Between contexts, the relationship between models must be understood and managed.
+
+A bounded context may correspond to a subdomain, but the relationship is not necessarily one-to-one. A subdomain can contain multiple bounded contexts, and the boundaries of the business problem do not automatically dictate the boundaries of the software model.
+
+The distinction becomes particularly useful when identifying integration contracts and deciding which context owns a particular piece of information.
+
+### The mapping is not one-to-one
+
+In a simple system, one subdomain may be implemented by one bounded context. That is a useful starting hypothesis, not a rule.
+
+A complex subdomain may require multiple models. Fulfillment, for example, could use separate contexts for warehouse planning and last-mile delivery because their language and optimization rules differ. Conversely, a small system may initially place several simple supporting capabilities inside one context, provided their models remain clear and changes do not interfere with one another.
+
+The right question is not “how many contexts should this subdomain have?” It is “where does this model stop being internally consistent?”
+
+### A bounded context is not a microservice
+
+A bounded context is a model boundary. A microservice is a deployment boundary. One may influence the other, but they solve different problems.
+
+A bounded context can live in a module of a monolith. A single service can contain more than one context if the boundaries remain explicit. A large context may eventually be deployed across multiple processes for scaling or reliability reasons.
+
+Choosing a microservice also introduces network failure, versioned contracts, observability, deployment coordination, and data-consistency trade-offs. Those costs need operational justification; discovering a subdomain is not enough.
+
+## Identify subdomains in practice
+
+Subdomain identification is a business analysis activity, not simply a technical exercise.
+
+A useful starting point is to investigate how the business operates and where its rules differ.
+
+### 1. Map business capabilities
+
+Map the activities required to deliver the product or service.
+
+For an e-commerce business, this might include product discovery, purchasing, payment, inventory management, and fulfillment.
+
+The initial map does not need to correspond to the final software architecture.
+
+### 2. Follow decisions, rules, and invariants
+
+Look beyond nouns such as `Product`, `Customer`, and `Order`.
+
+Investigate the rules that govern them.
+
+When can an order be canceled? When is inventory reserved? Can a payment be captured more than once? What happens when a product becomes unavailable after checkout?
+
+Different answers may reveal distinct responsibilities and important boundaries within the business.
+
+Pay attention to who can make each decision and what information they need. If two activities use different rules, change for different reasons, or require different experts, they may belong to different subdomains.
+
+### 3. Find the source of competitive advantage
+
+Identify the capabilities that make the business different from its competitors.
+
+These capabilities are candidates for the core domain and deserve further investigation.
+
+This analysis should involve people who understand the business strategy, not just developers interpreting the existing codebase.
+
+### 4. Find capabilities that can be handled generically
+
+Determine which requirements are common across many businesses and whether existing products or services can satisfy them.
+
+The objective is not to outsource every common capability, but to avoid developing specialized solutions without a clear business justification.
+
+### 5. Make relationships and ownership explicit
+
+Identify dependencies, information exchanges, and ownership of business rules.
+
+For example, order management may need product information from the catalog and payment outcomes from the payment domain. Understanding these relationships helps inform subsequent decisions about model boundaries and integration.
+
+These steps are iterative. As the business becomes better understood, the initial decomposition may need to change.
+
+Useful techniques include conversations with domain experts, process mapping, EventStorming, and reviewing real exceptions rather than only the happy path. Production incidents and manual workarounds are especially revealing: they often expose rules that the current model failed to capture.
+
+## Warning signs that a boundary is wrong
+
+No diagram proves that a decomposition is correct. Boundaries become more credible when they explain the language and reduce the cost of change. Some recurring signals suggest that they need another look:
+
+- the same term has conflicting meanings in different workflows;
+- one model accumulates optional fields needed by unrelated features;
+- a small business change requires coordinated edits across many modules;
+- multiple areas write the same data without clear ownership;
+- teams must understand each other's internal rules to make routine changes;
+- a service mostly forwards calls and has no cohesive business responsibility.
+
+These symptoms do not prescribe a particular fix. They are prompts to return to the business rules and ask whether the current model groups the right decisions together.
+
+## A practical decision sequence
+
+When approaching an unfamiliar business area, the following sequence keeps the reasoning grounded:
+
+1. Describe the business outcome without naming technologies.
+2. Identify capabilities, rules, decisions, and domain experts.
+3. Classify subdomains according to the current business strategy.
+4. Find places where terminology or rules require independent models.
+5. Define ownership and contracts between those models.
+6. Only then choose modules, data stores, processes, and deployment boundaries.
+
+The sequence is not a waterfall. New implementation knowledge can reveal a mistaken assumption about the domain. The point is to keep technical choices connected to an explicit understanding of the problem.
+
+## Conclusion
+
+Domain-Driven Design begins with understanding the business problem rather than selecting technical abstractions in isolation.
+
+Subdomains help divide that problem into meaningful areas of responsibility. Classifying them as core, supporting, or generic helps establish priorities and determine where specialized modeling or existing solutions may be appropriate.
+
+Bounded contexts address a different concern: defining where a domain model and its language remain consistent.
+
+Together, these concepts create a useful progression: understand the domain, decompose it into business capabilities, decide where strategic investment belongs, and define the boundaries within which each software model remains coherent.
+
+The result does not have to be a collection of microservices, nor does every business noun need to become an entity. The goal is a model that reflects the business accurately, gives important rules a clear home, and lets different parts of the system evolve without sharing meanings they do not actually have.

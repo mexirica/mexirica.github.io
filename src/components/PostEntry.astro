@@ -1,32 +1,35 @@
 ---
 import type { CollectionEntry } from 'astro:content';
-import { withBase } from '../lib/url';
-import { formatDate } from '../i18n';
+import { postPath } from '../lib/content';
+import { localizedPath, withBase } from '../lib/url';
+import { formatDateFor, getTranslator, type Locale } from '../i18n';
 
 interface Props {
   post: CollectionEntry<'blog'>;
   readingTime: string;
+  locale?: Locale;
 }
 
-const { post, readingTime } = Astro.props;
+const { post, readingTime, locale = 'en' } = Astro.props;
+const t = getTranslator(locale);
 ---
 
 <article class="entry-card">
   <div class="entry-meta">
     <time datetime={post.data.publishDate.toISOString()}>
-      {formatDate(post.data.publishDate, 'short')}
+      {formatDateFor(post.data.publishDate, locale, 'short')}
     </time>
     <span>{readingTime}</span>
   </div>
   <h2>
-    <a href={withBase(`/blog/${post.id}/`)}>{post.data.title}</a>
+    <a href={withBase(postPath(post))}>{post.data.title}</a>
   </h2>
   <p>{post.data.description}</p>
-  <ul class="tag-list" aria-label={`Tags for ${post.data.title}`}>
+  <ul class="tag-list" aria-label={t('post.tagsLabel', { title: post.data.title })}>
     {
       post.data.tags.map((tag) => (
         <li>
-          <a href={withBase(`/blog/tags/${tag}/`)}>{tag}</a>
+          <a href={withBase(localizedPath(`/blog/tags/${tag}/`, locale))}>{tag}</a>
         </li>
       ))
     }

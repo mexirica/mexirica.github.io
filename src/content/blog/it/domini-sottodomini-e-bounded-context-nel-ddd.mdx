@@ -1,0 +1,227 @@
+---
+title: 'Domini, sottodomini e bounded context nel DDD'
+publishDate: 2026-10-15
+locale: it
+translationKey: domains-and-subdomains-in-ddd
+slug: domini-sottodomini-e-bounded-context-nel-ddd
+tags:
+  - domain-driven-design
+  - software-design
+  - architecture
+  - modeling
+description: 'Come domini, sottodomini e bounded context risolvono problemi di progettazione diversi e come usare queste distinzioni senza presumere che debbano diventare confini tra servizi.'
+draft: false
+---
+
+Le discussioni sulla progettazione del software spesso partono dalle soluzioni: schemi di database, endpoint, entità, code e confini tra servizi.
+
+Quasi sempre è troppo presto.
+
+Prima di dividere un sistema dobbiamo capire cosa fa l'azienda, quali regole sono strettamente collegate e dove la stessa parola assume significati diversi. Altrimenti, i confini tecnici si basano su ipotesi che cambiano non appena emergono le vere regole di business.
+
+Il Domain-Driven Design (DDD) offre un vocabolario per svolgere questo lavoro. Tre dei suoi concetti più utili sono il **dominio**, i suoi **sottodomini** e i **bounded context** usati per modellarli.
+
+Sono collegati, ma non intercambiabili:
+
+- il **dominio** è l'area di business supportata dal software;
+- un **sottodominio** è una capacità distinta all'interno di quel business;
+- un **bounded context** è il confine entro il quale un modello e un linguaggio rimangono coerenti.
+
+Tenere chiare queste differenze semplifica molto le successive decisioni architetturali.
+
+## Partire dal dominio
+
+Un dominio rappresenta l'area di conoscenza, attività o competenza affrontata da un sistema software.
+
+Consideriamo un e-commerce. Le sue operazioni possono includere la gestione dei prodotti, l'elaborazione degli ordini, i pagamenti, l'inventario e le consegne. Insieme, queste attività formano il dominio di business supportato dal software.
+
+Comprendere il dominio richiede più che elencare le entità principali. Un prodotto non è soltanto un record con un nome e un prezzo. Può avere regole di prezzo, vincoli di disponibilità, condizioni contrattuali o relazioni con altri prodotti.
+
+Allo stesso modo, un ordine non è una semplice raccolta di articoli. Il suo ciclo di vita può coinvolgere l'autorizzazione del pagamento, la prenotazione delle scorte, le politiche di annullamento e le regole di evasione.
+
+Queste regole definiscono il funzionamento dell'azienda. Modellare il dominio significa rappresentare esplicitamente nel software i concetti e i vincoli rilevanti.
+
+La prima domanda, quindi, non è “come strutturiamo il codice?”, ma “cosa deve poter decidere, far rispettare e ricordare il business?”.
+
+## Suddividere il problema in sottodomini
+
+I grandi domini di business contengono diverse aree di responsabilità. Trattarle come un unico problema indistinto rende più difficile comprendere l'azienda e individuare dove risiede la complessità.
+
+Il DDD identifica queste aree come **sottodomini**: parti distinte del dominio complessivo.
+
+Una piattaforma e-commerce potrebbe includere:
+
+| Sottodominio | Responsabilità principale                                 |
+| ------------ | --------------------------------------------------------- |
+| Catalogo     | Organizzare e presentare le informazioni sui prodotti     |
+| Ordini       | Gestire creazione, modifiche e ciclo di vita degli ordini |
+| Pagamenti    | Autorizzare, acquisire e rimborsare i pagamenti           |
+| Inventario   | Monitorare la disponibilità e prenotare le scorte         |
+| Logistica    | Coordinare spedizione e consegna                          |
+| Clienti      | Gestire informazioni e regole relative ai clienti         |
+
+Questa scomposizione è illustrativa, non universale. I confini dipendono dal business reale, dal suo modello operativo e dalle regole che distinguono una responsabilità dall'altra.
+
+Un'azienda più piccola potrebbe unire inventario e logistica. Un marketplace potrebbe aver bisogno di modelli separati per venditori, inserzioni e scorte. Un'impresa che compete soprattutto sul prezzo potrebbe considerare il pricing un'area strategica autonoma.
+
+L'obiettivo non è produrre il maggior numero possibile di riquadri. È trovare capacità di business coese, con regole, termini, decisioni e competenze proprie.
+
+Per questo **un sottodominio rappresenta un problema di business, non necessariamente un componente software**. Può essere implementato come modulo di un monolite, gruppo di componenti oppure uno o più servizi.
+
+## Classificare il valore strategico
+
+Il DDD distingue sottodomini core, di supporto e generici. Questa classificazione aiuta a capire dove la conoscenza specializzata produce più valore, dove è giustificata un'implementazione su misura e dove una soluzione esistente può bastare.
+
+### Core domain
+
+Il core domain è la parte del business che genera il principale vantaggio competitivo.
+
+Due aziende e-commerce possono avere priorità molto diverse. Una compete grazie all'ampiezza del catalogo e a una logistica affidabile. Un'altra utilizza algoritmi proprietari per adeguare i prezzi alla domanda, alla concorrenza e al comportamento d'acquisto.
+
+Per la seconda, il pricing dinamico può appartenere al core domain; per la prima, la logistica o la gestione dei fornitori potrebbe essere più strategica.
+
+La classificazione dipende dalla strategia, non dalla complessità tecnica. Un'integrazione difficile non è automaticamente core, mentre poche righe di codice possono rappresentare una capacità decisiva per l'azienda.
+
+Un core domain merita analisi approfondita, stretta collaborazione con gli esperti e modelli capaci di esprimere le regole distintive dell'azienda. Questo non significa massimizzare la complessità, ma risolvere molto bene il problema giusto.
+
+### Sottodominio di supporto
+
+Un sottodominio di supporto è necessario per l'operatività, ma non costituisce il principale vantaggio competitivo.
+
+Uno strumento interno per gestire descrizioni, categorie e informazioni di base del catalogo può essere essenziale senza distinguere l'azienda dai concorrenti. In questo caso, il catalogo potrebbe essere classificato come sottodominio di supporto.
+
+Può comunque contenere regole significative e richiedere attenzione. La differenza è strategica: potrebbe non esserci motivo di investire in una soluzione altamente specializzata quando un design più semplice soddisfa i requisiti.
+
+“Di supporto” non significa irrilevante. Significa che la capacità sostiene il business anziché definirne il vantaggio principale.
+
+### Sottodominio generico
+
+Un sottodominio generico è necessario al business, ma non gli è esclusivo.
+
+L'autenticazione è l'esempio classico. Molti sistemi devono identificare gli utenti e applicare politiche di accesso; pochi hanno bisogno di costruire una piattaforma di identità completamente nuova. Un provider esistente spesso soddisfa meglio questi requisiti.
+
+Anche l'invio di e-mail, la generazione di documenti e le normali funzioni amministrative possono essere generici. La classificazione dipende però dal contesto: per un'azienda che offre una piattaforma di identità, questa capacità può essere centrale.
+
+La classificazione non è permanente. Una capacità generica può diventare core quando cambia la strategia, e un vecchio elemento distintivo può diventare una commodity con la maturazione del mercato.
+
+## Lasciare che la strategia guidi l'investimento
+
+Classificare i sottodomini aiuta a stabilire le priorità, ma non determina automaticamente l'architettura.
+
+Catalogo, ordini e pagamenti suggeriscono modelli con responsabilità chiare. Non dimostrano che siano necessari tre microservizi.
+
+Un monolite modulare può garantire un isolamento sufficiente mantenendo semplici il deployment e la gestione operativa. Servizi separati possono diventare appropriati quando deployment indipendenti, esigenze di scalabilità, responsabilità affidate a team distinti o altri requisiti concreti giustificano il costo aggiuntivo.
+
+**I confini di business e quelli di deployment sono correlati, ma non intercambiabili.**
+
+L'analisi dei sottodomini identifica i problemi che il sistema deve risolvere. Una successiva analisi architetturale decide come organizzare il software che li risolve.
+
+Questa classificazione orienta l'investimento ingegneristico, ma non costituisce una regola rigida. Sicurezza, affidabilità, requisiti normativi, costi di integrazione e vincoli operativi restano rilevanti.
+
+## Distinguere sottodomini e bounded context
+
+Una delle distinzioni più importanti nel DDD è quella tra sottodominio e bounded context.
+
+Un **sottodominio descrive una parte del problema di business**. Un **bounded context definisce il confine entro cui un modello e il suo linguaggio sono coerenti**.
+
+| Concetto        | Domanda principale                                   | Spazio    | Risultato tipico                              |
+| --------------- | ---------------------------------------------------- | --------- | --------------------------------------------- |
+| Dominio         | In quale business operiamo?                          | Problema  | Comprensione condivisa dell'area di business  |
+| Sottodominio    | Quale capacità distinta stiamo esaminando?           | Problema  | Scomposizione delle responsabilità            |
+| Bounded context | Dove sono validi questo modello e questo linguaggio? | Soluzione | Confine esplicito e contratto di integrazione |
+
+Questa distinzione tra spazio del problema e spazio della soluzione è utile, ma non va intesa come una corrispondenza meccanica: l'analisi del business orienta il modello software, ma non lo genera automaticamente.
+
+Consideriamo il concetto di prodotto.
+
+Nel catalogo un prodotto può includere identificatore, nome, descrizione, prezzo, categorie, immagini e disponibilità. Nel contesto degli ordini, una riga d'ordine potrebbe aver bisogno soltanto dell'identificatore, della descrizione, della quantità e del prezzo concordato quando è stato effettuato l'ordine.
+
+L'ordine non ha bisogno dell'intero modello del catalogo. Soprattutto, il prezzo registrato in un ordine esistente non dovrebbe cambiare quando cambia il prezzo attuale del catalogo. Il catalogo possiede l'offerta corrente; l'ordine possiede l'accordo storico con il cliente.
+
+Sono modelli diversi per scopi diversi. I bounded context rendono espliciti questi confini. All'interno di un contesto, linguaggio e regole devono avere un significato coerente; tra contesti, la relazione fra modelli deve essere compresa e gestita.
+
+Per questo un unico modello condiviso globalmente può diventare problematico: con l'evoluzione delle diverse aree, i requisiti possono divergere e le modifiche in un'area produrre conseguenze indesiderate nelle altre.
+
+### La corrispondenza non è uno a uno
+
+In un sistema semplice, un sottodominio può corrispondere a un bounded context. È un'ipotesi iniziale utile, non una regola.
+
+Un sottodominio complesso può richiedere più modelli. La logistica, per esempio, potrebbe usare contesti distinti per la pianificazione del magazzino e l'ultimo miglio. Al contrario, un sistema piccolo può raccogliere alcune semplici capacità di supporto nello stesso contesto, purché i modelli rimangano chiari.
+
+La domanda corretta non è “quanti contesti deve avere questo sottodominio?”, ma “dove questo modello smette di essere internamente coerente?”.
+
+### Un bounded context non è un microservizio
+
+Un bounded context è un confine del modello. Un microservizio è un confine di deployment.
+
+Un contesto può vivere in un modulo di un monolite. Un singolo servizio può contenere più contesti, se i confini restano espliciti. Un contesto ampio può essere eseguito su più processi per ragioni di scalabilità o affidabilità.
+
+I microservizi introducono anche guasti di rete, contratti versionati, osservabilità, coordinamento dei deployment e compromessi sulla consistenza dei dati. Questi costi richiedono una giustificazione operativa; individuare un sottodominio non basta.
+
+## Individuare i sottodomini nella pratica
+
+L'identificazione dei sottodomini è un'attività di analisi aziendale, non un semplice esercizio tecnico.
+
+### 1. Mappare le capacità di business
+
+Elenca le attività necessarie per fornire il prodotto o il servizio. La mappa iniziale non deve corrispondere all'architettura finale.
+
+### 2. Seguire decisioni, regole e invarianti
+
+Guarda oltre sostantivi come `Prodotto`, `Cliente` e `Ordine`.
+
+Quando si può annullare un ordine? Quando viene prenotato l'inventario? Un pagamento può essere acquisito due volte? Cosa succede se un prodotto diventa indisponibile dopo il checkout?
+
+Risposte diverse possono rivelare responsabilità distinte. Osserva chi prende ogni decisione e di quali informazioni ha bisogno.
+
+Se due attività applicano regole diverse, cambiano per motivi diversi o richiedono esperti diversi, potrebbero appartenere a sottodomini distinti.
+
+### 3. Trovare il vantaggio competitivo
+
+Individua le capacità che distinguono l'azienda. Sono candidate al core domain e meritano un'indagine con chi comprende la strategia, non soltanto con gli sviluppatori che leggono il codice attuale.
+
+### 4. Riconoscere le capacità generiche
+
+Stabilisci quali requisiti sono comuni a molte aziende e se prodotti esistenti possono soddisfarli. L'obiettivo non è esternalizzare tutto, ma evitare soluzioni specializzate prive di una giustificazione aziendale.
+
+### 5. Rendere esplicite relazioni e proprietà
+
+Individua dipendenze, scambi di informazioni e responsabilità sulle regole. La gestione degli ordini, per esempio, può usare dati del catalogo ed esiti dei pagamenti senza possedere quei modelli.
+
+Questo lavoro è iterativo. Conversazioni con esperti, mappatura dei processi ed EventStorming sono utili, ma le eccezioni reali sono ancora più rivelatrici. Incidenti di produzione e procedure manuali alternative spesso mostrano regole che il modello attuale non rappresenta.
+
+## Segnali di un confine sbagliato
+
+Nessun diagramma dimostra che una scomposizione sia corretta. Alcuni segnali ricorrenti suggeriscono di riesaminarla:
+
+- lo stesso termine ha significati contrastanti in flussi diversi;
+- un modello accumula campi opzionali richiesti da funzionalità non correlate;
+- una piccola modifica di business richiede interventi coordinati in molti moduli;
+- più aree scrivono gli stessi dati senza una responsabilità chiara;
+- i team devono conoscere le regole interne altrui per modifiche ordinarie;
+- un servizio inoltra quasi soltanto chiamate e non possiede una responsabilità coesa.
+
+Questi sintomi non prescrivono una soluzione. Invitano a tornare alle regole di business e a chiedersi se il modello raggruppi le decisioni giuste.
+
+## Una sequenza decisionale pratica
+
+Quando si affronta un'area di business sconosciuta:
+
+1. Descrivi il risultato aziendale senza nominare tecnologie.
+2. Individua capacità, regole, decisioni ed esperti di dominio.
+3. Classifica i sottodomini secondo la strategia attuale.
+4. Trova i punti in cui terminologia o regole richiedono modelli indipendenti.
+5. Definisci responsabilità e contratti tra questi modelli.
+6. Solo allora scegli moduli, database, processi e confini di deployment.
+
+Non è una cascata. Le conoscenze emerse durante l'implementazione possono rivelare un'ipotesi errata sul dominio. Lo scopo è mantenere le scelte tecniche collegate a una comprensione esplicita del problema.
+
+## Conclusione
+
+Il Domain-Driven Design parte dalla comprensione del problema di business, non dalla scelta isolata di astrazioni tecniche.
+
+I sottodomini dividono quel problema in aree significative. Classificarli come core, di supporto o generici aiuta a decidere dove investire nella modellazione specializzata e dove possono bastare soluzioni esistenti.
+
+I bounded context affrontano un'altra questione: definiscono dove un modello e il suo linguaggio rimangono coerenti.
+
+Il risultato non deve essere per forza una collezione di microservizi, né ogni sostantivo aziendale deve diventare un'entità. L'obiettivo è un modello fedele al business, che assegni alle regole importanti una collocazione chiara e consenta alle diverse parti del sistema di evolvere senza condividere significati che in realtà non possiedono.

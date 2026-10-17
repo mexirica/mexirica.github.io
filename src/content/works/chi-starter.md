@@ -1,6 +1,8 @@
 ---
 title: 'Chi Starter'
 description: 'A TUI and CLI project generator for production-focused Go services built with Chi.'
+locale: en
+translationKey: chi-starter
 tech:
   - Go
   - Chi

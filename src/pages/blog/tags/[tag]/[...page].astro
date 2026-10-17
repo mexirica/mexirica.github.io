@@ -5,12 +5,14 @@ import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import Pagination from '../../../../components/Pagination.astro';
 import PostEntry from '../../../../components/PostEntry.astro';
 import { withBase } from '../../../../lib/url';
-import { collectTags, sortPosts } from '../../../../lib/content';
+import { collectTags, postsForLocale, sortPosts } from '../../../../lib/content';
 import { SITE } from '../../../../consts';
 import { readingTime, t } from '../../../../i18n';
 
 export const getStaticPaths = (async ({ paginate }) => {
-  const posts = sortPosts(await getCollection('blog', ({ data }) => !data.draft));
+  const posts = sortPosts(
+    postsForLocale(await getCollection('blog', ({ data }) => !data.draft), 'en'),
+  );
   const allTags = collectTags(posts);
   return allTags.flatMap((tag) => {
     const taggedPosts = posts.filter((post) => post.data.tags.includes(tag));

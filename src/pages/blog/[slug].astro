@@ -5,13 +5,20 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import StructuredData from '../../components/StructuredData.astro';
 import Comments from '../../components/Comments.astro';
 import { withBase } from '../../lib/url';
-import { sortPosts } from '../../lib/content';
+import {
+  postPath,
+  postSlug,
+  postsForLocale,
+  postTranslationKey,
+  sortPosts,
+} from '../../lib/content';
 import { SITE } from '../../consts';
-import { formatDate, readingTime, t } from '../../i18n';
+import { formatDate, readingTime, t, type Locale } from '../../i18n';
 
 export async function getStaticPaths() {
   // Newest-first, same ordering as the blog index.
-  const entries = sortPosts(await getCollection('blog', ({ data }) => !data.draft));
+  const allEntries = await getCollection('blog', ({ data }) => !data.draft);
+  const entries = sortPosts(postsForLocale(allEntries, 'en'));
   return entries.map((entry, index) => {
     // Up to 3 posts ranked by shared tags; ties resolved by newest publish date.
     const related = entries
@@ -28,20 +35,27 @@ export async function getStaticPaths() {
       )
       .slice(0, 3)
       .map(({ post }) => post);
+    const key = postTranslationKey(entry);
+    const translations = Object.fromEntries(
+      allEntries
+        .filter((candidate) => postTranslationKey(candidate) === key)
+        .map((candidate) => [candidate.data.locale, postPath(candidate)]),
+    ) as Partial<Record<Locale, string>>;
 
     return {
-      params: { slug: entry.id },
+      params: { slug: postSlug(entry) },
       props: {
         entry,
         newer: entries[index - 1] ?? null,
         older: entries[index + 1] ?? null,
         related,
+        translations,
       },
     };
   });
 }
 
-const { entry, newer, older, related } = Astro.props;
+const { entry, newer, older, related, translations } = Astro.props;
 const { Content, headings, remarkPluginFrontmatter } = await render(entry);
 
 // JSON-LD needs absolute URLs — resolve against `site` (astro.config.mjs).
@@ -54,8 +68,9 @@ const schema = [
     headline: entry.data.title,
     description: entry.data.description,
     datePublished: entry.data.publishDate.toISOString(),
-    url: absolute(`/blog/${entry.id}/`),
-    image: absolute(`/og/blog/${entry.id}.png`),
+    inLanguage: 'en',
+    url: absolute(postPath(entry)),
+    image: absolute(`/og/blog/${postSlug(entry)}.png`),
     ...(SITE.author ? { author: { '@type': 'Person', name: SITE.author } } : {}),
   },
   {
@@ -76,16 +91,18 @@ const schema = [
 ---
 
 <BaseLayout
+  locale="en"
+  translations={translations}
   title={entry.data.title}
   description={entry.data.description}
   ogType="article"
-  image={withBase(`/og/blog/${entry.id}.png`)}
+  image={withBase(`/og/blog/${postSlug(entry)}.png`)}
 >
   <StructuredData slot="head" schema={schema} />
   <article data-pagefind-body>
     <header class="page-head section article-head">
       <p class="eyebrow">{t('post.eyebrow')}</p>
-      <a class="text-link return-link" href={withBase('/blog/')}>← All posts</a>
+      <a class="text-link return-link" href={withBase('/blog/')}>{t('post.return')}</a>
       <h1>{entry.data.title}</h1>
       <p class="lead">{entry.data.description}</p>
       <div class="entry-meta">
@@ -132,7 +149,7 @@ const schema = [
       <nav class="section post-nav-section" aria-label={t('post.adjacentLabel')}>
         <div class="post-nav">
           {older ? (
-            <a rel="prev" href={withBase(`/blog/${older.id}/`)}>
+            <a rel="prev" href={withBase(postPath(older))}>
               <span class="post-nav-label">{t('post.previous')}</span>
               <span class="post-nav-title">{older.data.title}</span>
             </a>
@@ -140,7 +157,7 @@ const schema = [
             <span aria-hidden="true" />
           )}
           {newer ? (
-            <a rel="next" class="post-nav-next" href={withBase(`/blog/${newer.id}/`)}>
+            <a rel="next" class="post-nav-next" href={withBase(postPath(newer))}>
               <span class="post-nav-label">{t('post.next')}</span>
               <span class="post-nav-title">{newer.data.title}</span>
             </a>
@@ -161,7 +178,7 @@ const schema = [
         <ul class="related-list">
           {related.map((post) => (
             <li>
-              <a href={withBase(`/blog/${post.id}/`)}>{post.data.title}</a>
+              <a href={withBase(postPath(post))}>{post.data.title}</a>
               <time datetime={post.data.publishDate.toISOString()}>
                 {formatDate(post.data.publishDate)}
               </time>
@@ -172,5 +189,5 @@ const schema = [
     )
   }
 
-  <Comments />
+  <Comments locale="en" />
 </BaseLayout>

@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import satori from 'satori';
 import sharp from 'sharp';
 import { SITE } from '../../../consts';
+import { postSlug, workSlug, worksForLocale } from '../../../lib/content';
 
 // Build-time generated Open Graph images for every blog post and work entry,
 // rendered in the theme's light palette (see global.css tokens). The static
@@ -17,8 +18,8 @@ interface OgProps {
 }
 
 export const getStaticPaths = (async () => {
-  const blog = await getCollection('blog', ({ data }) => !data.draft);
-  const works = await getCollection('works');
+  const blog = await getCollection('blog', ({ data }) => !data.draft && data.locale === 'en');
+  const works = worksForLocale(await getCollection('works'), 'en');
   return [
     {
       params: { collection: 'site', slug: 'default' },
@@ -29,7 +30,7 @@ export const getStaticPaths = (async () => {
       } satisfies OgProps,
     },
     ...blog.map((entry) => ({
-      params: { collection: 'blog', slug: entry.id },
+      params: { collection: 'blog', slug: postSlug(entry) },
       props: {
         title: entry.data.title,
         description: entry.data.description,
@@ -37,7 +38,7 @@ export const getStaticPaths = (async () => {
       } satisfies OgProps,
     })),
     ...works.map((entry) => ({
-      params: { collection: 'works', slug: entry.id },
+      params: { collection: 'works', slug: workSlug(entry) },
       props: {
         title: entry.data.title,
         description: entry.data.description,

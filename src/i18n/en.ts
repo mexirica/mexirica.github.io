@@ -25,6 +25,8 @@ export const en = {
   'nav.search': 'Search',
   'nav.label': 'Main navigation',
   'nav.brandHome': '{site} home',
+  'nav.skip': 'Skip to content',
+  'language.label': 'Language',
   'theme.toggle': 'Toggle color theme',
   'footer.notes': 'Notes',
   'social.label': 'Social links',
@@ -81,6 +83,8 @@ export const en = {
   'post.relatedEyebrow': 'Related',
   'post.breadcrumbHome': 'Home',
   'post.breadcrumbBlog': 'Blog',
+  'post.return': '← All posts',
+  'post.tagsLabel': 'Tags for {title}',
 
   // Comments (rendered only when GISCUS.enabled)
   'comments.eyebrow': 'Comments',
@@ -96,6 +100,7 @@ export const en = {
   'works.eyebrow': 'Works',
   'works.listLabel': 'Selected works',
   'work.eyebrow': 'Work',
+  'work.return': '← All works',
   'work.repository': 'View repository',
   'work.stackEyebrow': 'Stack',
 

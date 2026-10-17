@@ -2,11 +2,11 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { withBase } from '../../lib/url';
-import { sortWorks } from '../../lib/content';
+import { sortWorks, workPath, worksForLocale } from '../../lib/content';
 import { SITE } from '../../consts';
 import { t } from '../../i18n';
 
-const works = sortWorks(await getCollection('works'));
+const works = sortWorks(worksForLocale(await getCollection('works'), 'en'));
 ---
 
 <BaseLayout
@@ -26,7 +26,7 @@ const works = sortWorks(await getCollection('works'));
           <article class="work-card">
             <p class="entry-meta">{work.data.tech.join(' / ')}</p>
             <h2>
-              <a href={withBase(`/works/${work.id}/`)}>{work.data.title}</a>
+              <a href={withBase(workPath(work))}>{work.data.title}</a>
             </h2>
             <p>{work.data.description}</p>
             {work.data.repo && (

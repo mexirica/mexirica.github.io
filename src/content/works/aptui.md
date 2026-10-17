@@ -1,6 +1,8 @@
 ---
 title: 'AptUI'
 description: 'A terminal package manager for browsing, filtering, and operating on APT packages.'
+locale: en
+translationKey: aptui
 tech:
   - Go
   - Bubble Tea

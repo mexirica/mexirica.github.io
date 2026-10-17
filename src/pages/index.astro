@@ -5,12 +5,21 @@ import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import { withBase } from '../lib/url';
 import { SITE, SOCIAL_LINKS } from '../consts';
-import { sortPosts, sortWorks } from '../lib/content';
+import {
+  postPath,
+  postsForLocale,
+  sortPosts,
+  sortWorks,
+  workPath,
+  worksForLocale,
+} from '../lib/content';
 import { formatDate, t } from '../i18n';
 
-const works = sortWorks(await getCollection('works')).slice(0, 3);
+const works = sortWorks(worksForLocale(await getCollection('works'), 'en')).slice(0, 3);
 
-const posts = sortPosts(await getCollection('blog', ({ data }) => !data.draft)).slice(0, 3);
+const posts = sortPosts(
+  postsForLocale(await getCollection('blog', ({ data }) => !data.draft), 'en'),
+).slice(0, 3);
 const github = SOCIAL_LINKS.find((link) => link.label === 'GitHub');
 const linkedin = SOCIAL_LINKS.find((link) => link.label === 'LinkedIn');
 
@@ -68,7 +77,7 @@ const websiteSchema = {
               <div>
                 <p class="meta">{formatDate(work.data.publishDate, 'short')}</p>
                 <h3>
-                  <a href={withBase(`/works/${work.id}/`)}>{work.data.title}</a>
+                  <a href={withBase(workPath(work))}>{work.data.title}</a>
                 </h3>
                 <p>{work.data.description}</p>
                 {work.data.tech.length > 0 && (
@@ -108,7 +117,7 @@ const websiteSchema = {
               <div>
                 <p class="meta">{formatDate(post.data.publishDate, 'short')}</p>
                 <h3>
-                  <a href={withBase(`/blog/${post.id}/`)}>{post.data.title}</a>
+                  <a href={withBase(postPath(post))}>{post.data.title}</a>
                 </h3>
                 <p>{post.data.description}</p>
               </div>

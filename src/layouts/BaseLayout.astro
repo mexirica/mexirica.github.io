@@ -7,9 +7,15 @@ import '@fontsource/public-sans/700.css';
 import '@fontsource-variable/jetbrains-mono/wght.css';
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
-import { withBase } from '../lib/url';
+import { localizedPath, withBase } from '../lib/url';
 import { SITE, NAV_ITEMS } from '../consts';
-import { locale, navLabel, t } from '../i18n';
+import {
+  locale as defaultLocale,
+  getTranslator,
+  navLabelFor,
+  SUPPORTED_LOCALES,
+  type Locale,
+} from '../i18n';
 import CodeCopy from '../components/CodeCopy.astro';
 import SocialLinks from '../components/SocialLinks.astro';
 
@@ -18,11 +24,21 @@ interface Props {
   description?: string;
   ogType?: 'website' | 'article';
   image?: string;
+  locale?: Locale;
+  translations?: Partial<Record<Locale, string>>;
 }
 
 const siteName = SITE.title;
 
-const { title = siteName, description = SITE.description, ogType = 'website', image } = Astro.props;
+const {
+  title = siteName,
+  description = SITE.description,
+  ogType = 'website',
+  image,
+  locale = defaultLocale,
+  translations,
+} = Astro.props;
+const t = getTranslator(locale);
 
 // `Astro.site` comes from `site` in astro.config.mjs; fall back to the
 // request URL during dev so canonical/OG links still resolve.
@@ -32,8 +48,12 @@ const imageURL = image ? new URL(image, siteBase) : new URL(withBase(SITE.ogImag
 const fullTitle = title === siteName ? title : `${title} — ${siteName}`;
 
 const currentPath = Astro.url.pathname;
+const alternatePaths =
+  translations ??
+  Object.fromEntries(SUPPORTED_LOCALES.map((tag) => [tag, localizedPath(currentPath, tag)]));
 const isActive = (href: string) => {
-  const full = withBase(href);
+  const localized = localizedPath(href, locale);
+  const full = withBase(localized);
   return href === '/' ? currentPath === full : currentPath.startsWith(full);
 };
 ---
@@ -50,8 +70,27 @@ const isActive = (href: string) => {
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
     <link rel="canonical" href={canonicalURL} />
+    {
+      Object.entries(alternatePaths).map(([tag, path]) => (
+        <link rel="alternate" hreflang={tag} href={new URL(withBase(path), siteBase)} />
+      ))
+    }
+    {
+      alternatePaths.en && (
+        <link
+          rel="alternate"
+          hreflang="x-default"
+          href={new URL(withBase(alternatePaths.en), siteBase)}
+        />
+      )
+    }
     <link rel="sitemap" href={withBase('/sitemap-index.xml')} />
-    <link rel="alternate" type="application/rss+xml" title={siteName} href={withBase('/rss.xml')} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={siteName}
+      href={withBase(localizedPath('/rss.xml', locale))}
+    />
     <title>{fullTitle}</title>
 
     {/* Astro comment syntax — an HTML comment here would ship on every page. */}
@@ -92,19 +131,43 @@ const isActive = (href: string) => {
     </script>
   </head>
   <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" href="#main-content">{t('nav.skip')}</a>
     <header class="site-header">
-      <a class="brand" href={withBase('/')} aria-label={t('nav.brandHome', { site: siteName })}>
+      <a
+        class="brand"
+        href={withBase(localizedPath('/', locale))}
+        aria-label={t('nav.brandHome', { site: siteName })}
+      >
         <span class="brand-mark" aria-hidden="true"></span>
         <span>{siteName}</span>
       </a>
       <nav class="site-nav" aria-label={t('nav.label')}>
         {
           NAV_ITEMS.map((item) => (
-            <a href={withBase(item.href)} aria-current={isActive(item.href) ? 'page' : undefined}>
-              {navLabel(item)}
+            <a
+              href={withBase(localizedPath(item.href, locale))}
+              aria-current={isActive(item.href) ? 'page' : undefined}
+            >
+              {navLabelFor(item, locale)}
             </a>
           ))
+        }
+      </nav>
+      <nav class="language-nav" aria-label={t('language.label')}>
+        {
+          SUPPORTED_LOCALES.map(
+            (tag) =>
+              alternatePaths[tag] && (
+                <a
+                  href={withBase(alternatePaths[tag])}
+                  lang={tag}
+                  hreflang={tag}
+                  aria-current={tag === locale ? 'page' : undefined}
+                >
+                  {tag.toUpperCase()}
+                </a>
+              ),
+          )
         }
       </nav>
       <button
@@ -125,10 +188,10 @@ const isActive = (href: string) => {
     <footer class="site-footer">
       {SITE.footerText && <p>{SITE.footerText}</p>}
       <div class="footer-links">
-        <a href={withBase('/blog/')}>{t('footer.notes')}</a>
-        <a href={withBase('/works/')}>Works</a>
+        <a href={withBase(localizedPath('/blog/', locale))}>{t('footer.notes')}</a>
+        <a href={withBase(localizedPath('/works/', locale))}>{t('nav.works')}</a>
       </div>
-      <SocialLinks />
+      <SocialLinks locale={locale} />
     </footer>
 
     <CodeCopy />
